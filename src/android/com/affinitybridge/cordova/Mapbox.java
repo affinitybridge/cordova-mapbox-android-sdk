@@ -17,20 +17,14 @@ import com.mapbox.mapboxsdk.tileprovider.tilesource.MapboxTileLayer;
 public class Mapbox extends CordovaPlugin {
 
   public static final String ACTION_CREATE_MAP = "createMap";
-  public static final String ACTION_ECHO = "echo";
 
-  public static final String AB_TILELAYER_OFFLINE = "mapbox.streets";
+  public static final String TILELAYER_MAPBOX_STREETS = "mapbox.streets";
 
   @Override
   public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
     try {
       if (ACTION_CREATE_MAP.equals(action)) {
         createMap();
-        return true;
-      }
-      else if (ACTION_ECHO.equals(action)) {
-        String message = args.getString(0);
-        this.echo(message, callbackContext);
         return true;
       }
       callbackContext.error("Invalid action");
@@ -40,15 +34,6 @@ public class Mapbox extends CordovaPlugin {
       callbackContext.error(e.getMessage());
     }
     return false;
-  }
-
-  private void echo(String message, CallbackContext callbackContext) {
-    if (message != null && message.length() > 0) {
-      callbackContext.success(message);
-    }
-    else {
-      callbackContext.error("Expected one non-empty string argument.");
-    }
   }
 
   private void createMap() {
@@ -63,9 +48,10 @@ public class Mapbox extends CordovaPlugin {
 
         MapView mapView = new MapView(activity);
         mapView.setAccessToken(accessToken);
-        mapView.setTileSource(new MapboxTileLayer(AB_TILELAYER_OFFLINE));
+        mapView.setTileSource(new MapboxTileLayer(TILELAYER_MAPBOX_STREETS));
         activity.setContentView(mapView);
       }
     });
   }
+
 }
