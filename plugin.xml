@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+  id="com.affinitybridge.cordova.mapbox" version="0.2.3">
+  <name>Mapbox</name>
+  <description>Mapbox Plugin</description>
+  <license>Apache 2.0</license>
+  <keywords>mapbox</keywords>
+
+  <js-module src="www/mapbox.js" name="mapbox">
+    <clobbers target="mapbox" />
+  </js-module>
+
+  <preference name="MAPBOX_ACCESS_TOKEN" />
+
+  <platform name="android">
+    <config-file target="res/xml/config.xml" parent="/*">
+      <feature name="Mapbox">
+        <param name="android-package" value="com.affinitybridge.cordova.mapbox.Mapbox"/>
+      </feature>
+    </config-file>
+
+    <config-file target="AndroidManifest.xml" parent="/*">
+      <!-- Required by Mapbox Android SDK -->
+      <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+      <uses-permission android:name="android.permission.INTERNET" />
+      <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
+      <!-- Required by Mapbox Android SDK to use location services -->
+      <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+      <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+      <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    </config-file>
+
+    <config-file target="res/values/strings.xml" parent="/*">
+      <string name="mapboxAccessToken">$MAPBOX_ACCESS_TOKEN</string>
+    </config-file>
+
+    <source-file src="src/android/com/affinitybridge/cordova/Mapbox.java" target-dir="src/com/affinitybridge/cordova" />
+
+    <framework src="libs/android/mapbox-android-sdk/mapbox.gradle" custom="true" type="gradleReference" />
+  </platform>
+
+</plugin>
