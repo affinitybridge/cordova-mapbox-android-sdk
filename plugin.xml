@@ -36,6 +36,7 @@
     </config-file>
 
     <source-file src="src/android/com/affinitybridge/cordova/Mapbox.java" target-dir="src/com/affinitybridge/cordova" />
+    <source-file src="assets/test.MBTiles" target-dir="assets/" />
 
     <framework src="libs/android/mapbox-android-sdk/mapbox.gradle" custom="true" type="gradleReference" />
   </platform>
