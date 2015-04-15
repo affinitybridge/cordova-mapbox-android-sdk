@@ -15,6 +15,13 @@ Cordova plugin for Mapbox SDK (Currently android only)
         mapbox.createMBTilesMap('my-tiles.MBTiles', function () {
             alert("Map created");
         });
+
+        // or...
+
+        // Create MapEditor activity.
+        mapbox.mapEditor(function () {
+          console.log('Map editor started...');
+        });
     }, false);
 
 ### Installing:
