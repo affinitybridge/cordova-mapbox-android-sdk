@@ -11,5 +11,10 @@ module.exports = {
         exec(callback, function (err) {
             callback(err || 'There was a problem.');
         }, "Mapbox", "createMBTilesLayerMap", [file || "test.MBTiles"]);
+    },
+    mapEditor: function mapEditor(callback) {
+        exec(callback, function (err) {
+            callback(err || 'There was a problem.');
+        }, "Mapbox", "mapEditor", []);
     }
 };

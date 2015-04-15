@@ -31,11 +31,31 @@
       <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     </config-file>
 
+    <config-file target="AndroidManifest.xml" parent="/manifest/application">
+      <activity
+        android:name="com.affinitybridge.cordova.mapbox.MapEditorActivity"
+        android:label="Add features"
+        android:parentActivityName="$PACKAGE_NAME.MainActivity">
+      </activity>
+    </config-file>
+
     <config-file target="res/values/strings.xml" parent="/*">
       <string name="mapboxAccessToken">$MAPBOX_ACCESS_TOKEN</string>
+
+      <string name="action_new">Add feature</string>
     </config-file>
 
     <source-file src="src/android/com/affinitybridge/cordova/Mapbox.java" target-dir="src/com/affinitybridge/cordova" />
+    <source-file src="src/android/com/affinitybridge/cordova/MapEditorActivity.java" target-dir="src/com/affinitybridge/cordova" />
+
+    <source-file src="src/android/res/drawable/ic_action_new.png" target-dir="res/drawable" />
+    <source-file src="src/android/res/drawable-mdpi/ic_action_new.png" target-dir="res/drawable-mdpi" />
+    <source-file src="src/android/res/drawable-hdpi/ic_action_new.png" target-dir="res/drawable-hdpi" />
+    <source-file src="src/android/res/drawable-xhdpi/ic_action_new.png" target-dir="res/drawable-xhdpi" />
+    <source-file src="src/android/res/drawable-xxhdpi/ic_action_new.png" target-dir="res/drawable-xxhdpi" />
+
+    <source-file src="src/android/res/menu/map_editor_activity_actions.xml" target-dir="res/menu" />
+
     <source-file src="assets/test.MBTiles" target-dir="assets/" />
 
     <framework src="libs/android/mapbox-android-sdk/mapbox.gradle" custom="true" type="gradleReference" />

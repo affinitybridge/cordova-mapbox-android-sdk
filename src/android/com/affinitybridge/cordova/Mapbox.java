@@ -10,6 +10,8 @@ import org.json.JSONException;
 import android.util.Log;
 import android.app.Activity;
 import android.content.res.Resources;
+import android.content.Intent;
+import android.view.View;
 
 import com.mapbox.mapboxsdk.geometry.BoundingBox;
 import com.mapbox.mapboxsdk.views.MapView;
@@ -23,6 +25,7 @@ public class Mapbox extends CordovaPlugin {
 
   public static final String ACTION_CREATE_MAPBOX_MAP = "createMapboxTileLayerMap";
   public static final String ACTION_CREATE_MBTILES_MAP = "createMBTilesLayerMap";
+  public static final String ACTION_MAP_EDITOR = "mapEditor";
 
   @Override
   public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
@@ -32,6 +35,7 @@ public class Mapbox extends CordovaPlugin {
         if (mapId != null && mapId.length() > 0) {
           createMapboxMap(mapId);
           callbackContext.success("Mapbox Map created.");
+          return true;
         }
       }
       else if (ACTION_CREATE_MBTILES_MAP.equals(action)) {
@@ -39,7 +43,13 @@ public class Mapbox extends CordovaPlugin {
         if (fileName != null && fileName.length() > 0) {
           createMBTilesMap(fileName);
           callbackContext.success("MBTiles Map created.");
+          return true;
         }
+      }
+      else if (ACTION_MAP_EDITOR.equals(action)) {
+        mapEditor();
+        callbackContext.success("Map Editor started...");
+        return true;
       }
       callbackContext.error("Invalid action");
     }
@@ -52,7 +62,7 @@ public class Mapbox extends CordovaPlugin {
 
   private void createMapboxMap(final String mapId) {
 
-    cordova.getActivity().runOnUiThread(new Runnable() {
+    this.cordova.getActivity().runOnUiThread(new Runnable() {
       public void run() {
         Activity activity = cordova.getActivity();
         MapView mapView = new MapView(webView.getContext());
@@ -82,18 +92,12 @@ public class Mapbox extends CordovaPlugin {
   }
 
   private void createMBTilesMap(final String fileName) {
-    cordova.getActivity().runOnUiThread(new Runnable() {
+    this.cordova.getActivity().runOnUiThread(new Runnable() {
       public void run() {
         Activity activity = cordova.getActivity();
         MapView mapView = new MapView(webView.getContext());
         BoundingBox box;
 
-        // Get Mapbox access token from Android's application resources.
-        //Resources res = activity.getResources();
-        //int resId = res.getIdentifier("mapboxAccessToken", "string", activity.getPackageName());
-        //String accessToken = res.getString(resId);
-
-        // Offline MBTiles layer.
         TileLayer mbTileLayer = new MBTilesLayer(activity, fileName);
         mapView.setTileSource(new ITileLayer[] {
           mbTileLayer, new WebSourceTileLayer("mapquest",
@@ -103,7 +107,6 @@ public class Mapbox extends CordovaPlugin {
           .setMinimumZoomLevel(1)
           .setMaximumZoomLevel(18)
         });
-        // END Offline MBTiles layer.
 
         box = mbTileLayer.getBoundingBox();
         mapView.setScrollableAreaLimit(box);
@@ -115,6 +118,15 @@ public class Mapbox extends CordovaPlugin {
         activity.setContentView(mapView);
       }
     });
+  }
+
+  private void mapEditor() {
+    sendMessage();
+  }
+
+  private void sendMessage() {
+    Intent intent = new Intent(cordova.getActivity(), MapEditorActivity.class);
+    cordova.getActivity().startActivity(intent);
   }
 
 }
