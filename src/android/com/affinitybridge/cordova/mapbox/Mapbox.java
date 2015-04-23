@@ -85,7 +85,7 @@ public class Mapbox extends CordovaPlugin {
         mapView.setMaxZoomLevel(mapView.getTileProvider().getMaximumZoomLevel());
         mapView.setCenter(mapView.getTileProvider().getCenterCoordinate());
         mapView.setZoom(0);
-        Log.d("MainActivity", "zoomToBoundingBox " + box.toString());
+        Log.d("MapboxPlugin", "zoomToBoundingBox " + box.toString());
         activity.setContentView(mapView);
       }
     });
@@ -114,7 +114,7 @@ public class Mapbox extends CordovaPlugin {
         mapView.setMaxZoomLevel(mapView.getTileProvider().getMaximumZoomLevel());
         mapView.setCenter(mapView.getTileProvider().getCenterCoordinate());
         mapView.setZoom(0);
-        Log.d("MainActivity", "zoomToBoundingBox " + box.toString());
+        Log.d("MapboxPlugin", "zoomToBoundingBox " + box.toString());
         activity.setContentView(mapView);
       }
     });
@@ -125,8 +125,30 @@ public class Mapbox extends CordovaPlugin {
   }
 
   private void sendMessage() {
+    /* this.cordova.setActivityResultCallback(this); */
     Intent intent = new Intent(cordova.getActivity(), MapEditorActivity.class);
-    cordova.getActivity().startActivity(intent);
+    cordova.startActivityForResult(this, intent, 1);
+  }
+
+  public void onActivityResult(int requestCode, int resultCode, Intent data) {
+    Log.d("MapboxPlugin", "onActivityResult() called.");
+    if (requestCode == 1) {
+      Log.d("MapboxPlugin", "onActivityResult() request code == 1.");
+      if (resultCode == cordova.getActivity().RESULT_OK) {
+        Log.d("MapboxPlugin", "Activity returned RESULT_OK.");
+        if (data != null) {
+          String features = data.getStringExtra(Intent.EXTRA_TEXT);
+          Log.d("MapboxPlugin", "Intent extra: " + features);
+        }
+        else {
+          Log.d("MapboxPlugin", "Intent is null");
+        }
+      }
+      else if (resultCode == cordova.getActivity().RESULT_CANCELED) {
+        //String geometries = data.getData();
+        Log.d("MapboxPlugin", "Activity returned RESULT_CENCELED.");
+      }
+    }
   }
 
 }

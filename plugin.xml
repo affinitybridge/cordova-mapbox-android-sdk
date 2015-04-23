@@ -43,10 +43,23 @@
       <string name="mapboxAccessToken">$MAPBOX_ACCESS_TOKEN</string>
 
       <string name="action_new">Add feature</string>
+      <string name="action_location_find">Find location</string>
+      <string name="action_add_marker">Add marker</string>
+      <string name="action_add_line">Add line</string>
+      <string name="action_add_polygon">Add polygon</string>
+      <string name="action_add_point">Add point</string>
+      <string name="action_remove_point">Remove point</string>
+      <string name="action_done">Finish feature</string>
+      <string name="action_cancel">Discard feature</string>
     </config-file>
 
-    <source-file src="src/android/com/affinitybridge/cordova/Mapbox.java" target-dir="src/com/affinitybridge/cordova" />
-    <source-file src="src/android/com/affinitybridge/cordova/MapEditorActivity.java" target-dir="src/com/affinitybridge/cordova" />
+    <source-file src="src/android/com/affinitybridge/cordova/mapbox/Mapbox.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
+    <source-file src="src/android/com/affinitybridge/cordova/mapbox/MapEditorActivity.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
+    <source-file src="src/android/com/affinitybridge/cordova/mapbox/MarkerShadowBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
+    <source-file src="src/android/com/affinitybridge/cordova/mapbox/Builder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
+    <source-file src="src/android/com/affinitybridge/cordova/mapbox/MarkerBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
+    <source-file src="src/android/com/affinitybridge/cordova/mapbox/LineBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
+    <source-file src="src/android/com/affinitybridge/cordova/mapbox/PolygonBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
 
     <source-file src="src/android/res/drawable/ic_action_new.png" target-dir="res/drawable" />
     <source-file src="src/android/res/drawable-mdpi/ic_action_new.png" target-dir="res/drawable-mdpi" />
@@ -54,7 +67,34 @@
     <source-file src="src/android/res/drawable-xhdpi/ic_action_new.png" target-dir="res/drawable-xhdpi" />
     <source-file src="src/android/res/drawable-xxhdpi/ic_action_new.png" target-dir="res/drawable-xxhdpi" />
 
-    <source-file src="src/android/res/menu/map_editor_activity_actions.xml" target-dir="res/menu" />
+    <source-file src="src/android/res/drawable-mdpi/ic_action_location_found.png" target-dir="res/drawable-mdpi" />
+    <source-file src="src/android/res/drawable-hdpi/ic_action_location_found.png" target-dir="res/drawable-hdpi" />
+    <source-file src="src/android/res/drawable-xhdpi/ic_action_location_found.png" target-dir="res/drawable-xhdpi" />
+    <source-file src="src/android/res/drawable-xxhdpi/ic_action_location_found.png" target-dir="res/drawable-xxhdpi" />
+
+    <source-file src="src/android/res/drawable-mdpi/ic_action_location_off.png" target-dir="res/drawable-mdpi" />
+    <source-file src="src/android/res/drawable-hdpi/ic_action_location_off.png" target-dir="res/drawable-hdpi" />
+    <source-file src="src/android/res/drawable-xhdpi/ic_action_location_off.png" target-dir="res/drawable-xhdpi" />
+    <source-file src="src/android/res/drawable-xxhdpi/ic_action_location_off.png" target-dir="res/drawable-xxhdpi" />
+
+    <source-file src="src/android/res/drawable-mdpi/ic_action_location_searching.png" target-dir="res/drawable-mdpi" />
+    <source-file src="src/android/res/drawable-hdpi/ic_action_location_searching.png" target-dir="res/drawable-hdpi" />
+    <source-file src="src/android/res/drawable-xhdpi/ic_action_location_searching.png" target-dir="res/drawable-xhdpi" />
+    <source-file src="src/android/res/drawable-xxhdpi/ic_action_location_searching.png" target-dir="res/drawable-xxhdpi" />
+
+    <source-file src="src/android/res/drawable-mdpi/ic_action_remove.png" target-dir="res/drawable-mdpi" />
+    <source-file src="src/android/res/drawable-hdpi/ic_action_remove.png" target-dir="res/drawable-hdpi" />
+    <source-file src="src/android/res/drawable-xhdpi/ic_action_remove.png" target-dir="res/drawable-xhdpi" />
+    <source-file src="src/android/res/drawable-xxhdpi/ic_action_remove.png" target-dir="res/drawable-xxhdpi" />
+
+    <source-file src="src/android/res/drawable-mdpi/ic_action_accept.png" target-dir="res/drawable-mdpi" />
+    <source-file src="src/android/res/drawable-hdpi/ic_action_accept.png" target-dir="res/drawable-hdpi" />
+    <source-file src="src/android/res/drawable-xhdpi/ic_action_accept.png" target-dir="res/drawable-xhdpi" />
+    <source-file src="src/android/res/drawable-xxhdpi/ic_action_accept.png" target-dir="res/drawable-xxhdpi" />
+
+    <source-file src="src/android/res/layout/map_editor.xml" target-dir="res/layout" />
+
+    <source-file src="src/android/res/menu/context_menu_add_feature.xml" target-dir="res/menu" />
 
     <source-file src="assets/test.MBTiles" target-dir="assets/" />
 
