@@ -1,19 +1,24 @@
 package com.affinitybridge.cordova.mapbox;
 
+import android.content.res.Resources;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Point;
-import android.graphics.drawable.Drawable;
+import android.graphics.Color;
+import android.graphics.PointF;
 
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.ShapeDrawable;
+import android.graphics.drawable.shapes.RectShape;
 import android.util.Log;
 import android.view.DragEvent;
 import android.view.View;
 
-import com.mapbox.mapboxsdk.api.ILatLng;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.overlay.Icon;
 import com.mapbox.mapboxsdk.overlay.Marker;
 import com.mapbox.mapboxsdk.views.MapView;
-import com.mapbox.mapboxsdk.views.MapViewListener;
 import com.mapbox.mapboxsdk.views.util.Projection;
 
 import org.json.JSONObject;
@@ -23,32 +28,56 @@ import java.util.ArrayList;
 /**
  * Created by tnightingale on 15-04-21.
  */
-abstract class Builder implements MapViewListener {
+abstract class Builder {
 
     protected MapView mapView;
 
     protected int selected = -1;
 
-    protected String selectedColor = "#FF0000";
-
-    protected String markerColor = "#0000FF";
-
-    protected String markerIcon = "marker-stroked";
-
-    protected Icon icon;
-
-    protected Icon selectedIcon;
-
     protected ArrayList<LatLng> latLngs;
 
     protected ArrayList<Marker> markers;
 
-    public Builder(MapView mapView) {
-        this.mapView = mapView;
+    protected DraggableItemizedIconOverlay markerOverlay;
+
+    Drawable vertexImage;
+
+    Drawable vertexSelectedImage;
+
+    public Builder(MapView mv) {
+        this.mapView = mv;
         this.latLngs = new ArrayList<LatLng>();
         this.markers = new ArrayList<Marker>();
-        this.selectedIcon = new Icon(this.mapView.getContext(), Icon.Size.LARGE, this.markerIcon, this.selectedColor);
-        this.icon = new Icon(this.mapView.getContext(), Icon.Size.SMALL, this.markerIcon, this.markerColor);
+
+        this.markerOverlay = new DraggableItemizedIconOverlay(this.mapView.getContext(), new ArrayList<Marker>(), new DraggableItemizedIconOverlay.OnItemDraggableGestureListener<Marker>() {
+            public boolean onItemSingleTapUp(final int index, final Marker item) {
+                return false;
+            }
+
+            public boolean onItemLongPress(final int index, final Marker item) {
+                return false;
+            }
+
+            public boolean onItemDown(final int index, final Marker item) {
+                select(markers.indexOf(item), item);
+
+                mapView.setOnDragListener(new MarkerDragEventListener());
+                mapView.startDrag(null, new MarkerShadowBuilder(mapView, item), null, 0);
+
+                return true;
+            }
+        });
+
+        this.mapView.addItemizedOverlay(this.markerOverlay);
+    }
+
+
+    public void setVertexImage(Drawable img) {
+        this.vertexImage = img;
+    }
+
+    public void setVertexSelectedImage(Drawable img) {
+        this.vertexSelectedImage = img;
     }
 
     protected void select(int index) {
@@ -59,7 +88,15 @@ abstract class Builder implements MapViewListener {
     protected void select(int index, Marker marker) {
         this.deselect();
         this.selected = index;
-        marker.setIcon(new Icon(this.mapView.getContext(), Icon.Size.LARGE, this.markerIcon, this.selectedColor));
+
+        if (this.vertexSelectedImage != null) {
+            marker.setHotspot(Marker.HotspotPlace.CENTER);
+            marker.setMarker(this.vertexSelectedImage);
+        }
+        else {
+            marker.setIcon(new Icon(this.mapView.getContext(), Icon.Size.SMALL, "", "FF0000"));
+        }
+
         Log.d("Builder", String.format("select() this.selected: %d", this.selected));
     }
 
@@ -68,19 +105,38 @@ abstract class Builder implements MapViewListener {
             return;
         }
         Marker marker = this.markers.get(this.selected);
-        marker.setIcon(new Icon(this.mapView.getContext(), Icon.Size.SMALL, this.markerIcon, this.markerColor));
+
+        if (this.vertexImage != null) {
+            marker.setHotspot(Marker.HotspotPlace.CENTER);
+            marker.setMarker(this.vertexImage);
+        }
+        else {
+            marker.setIcon(new Icon(this.mapView.getContext(), Icon.Size.SMALL, "", "0000FF"));
+        }
+
         this.selected = -1;
     }
 
     final public void addPoint() {
         LatLng position = mapView.getCenter();
-        Marker marker = new Marker(this.mapView, "", "", position);
-        marker.setIcon(new Icon(this.mapView.getContext(), Icon.Size.SMALL, this.markerIcon, this.markerColor));
+        Marker marker = new Marker("", "", position);
+        marker.setAnchor(new PointF(0.5f, 0.5f));
+
+        if (this.vertexImage != null) {
+            marker.setHotspot(Marker.HotspotPlace.CENTER);
+            marker.setMarker(this.vertexImage);
+        }
+        else {
+            marker.setIcon(new Icon(this.mapView.getContext(), Icon.Size.SMALL, "", "0000FF"));
+        }
 
         if (this.add(position)) {
             this.latLngs.add(position);
             this.markers.add(marker);
-            this.mapView.addMarker(marker);
+            this.markerOverlay.addItem(marker);
+            marker.addTo(mapView);
+            this.mapView.invalidate();
+            Log.d("Builder", String.format("Added point, this.latLngs.size(): %d", this.latLngs.size()));
         }
         else {
             Log.d("Builder", "Couldn't add point.");
@@ -98,44 +154,12 @@ abstract class Builder implements MapViewListener {
             return;
         }
         Marker marker = this.markers.get(index);
-        this.mapView.removeMarker(marker);
+        this.markerOverlay.removeItem(marker);
         this.markers.remove(index);
         this.latLngs.remove(index);
         this.remove(index);
+        mapView.invalidate();
     }
-
-    @Override
-    public void onShowMarker(MapView mapView, Marker marker) {
-
-    }
-
-    @Override
-    public void onHideMarker(MapView mapView, Marker marker) {
-
-    }
-
-    @Override
-    public void onTapMarker(MapView mapView, Marker marker) {
-        int index = this.markers.indexOf(marker);
-        this.select(index, marker);
-    }
-
-    @Override
-    public void onLongPressMarker(MapView mapView, Marker marker) {
-        Log.d("Builder", "onLongPressMarker()");
-        int index = this.markers.indexOf(marker);
-        this.select(index, marker);
-        View.DragShadowBuilder markerShadow = new MarkerShadowBuilder(mapView, marker);
-        View.OnDragListener markerDragListener = new MarkerDragEventListener();
-        mapView.setOnDragListener(markerDragListener);
-        mapView.startDrag(null, markerShadow, null, 0);
-    }
-
-    @Override
-    public void onTapMap(MapView mapView, ILatLng iLatLng) {}
-
-    @Override
-    public void onLongPressMap(MapView mapView, ILatLng iLatLng) {}
 
     protected void reset() {}
 
@@ -147,7 +171,8 @@ abstract class Builder implements MapViewListener {
 
     private class MarkerDragEventListener implements View.OnDragListener {
         private boolean dragStart(View v, DragEvent event) {
-            mapView.removeMarker(markers.get(selected));
+            markerOverlay.removeItem(markers.get(selected));
+            Log.d("MarkerDragEventL", String.format("dragStart(), latLngs.size(): %d", latLngs.size()));
             return true;
         }
 
@@ -169,7 +194,8 @@ abstract class Builder implements MapViewListener {
             Marker m = markers.get(selected);
             LatLng latLng = (LatLng) p.fromPixels(event.getX(), event.getY());
             m.setPoint(latLng);
-            mapView.addMarker(m);
+            markerOverlay.addItem(m);
+            m.addTo(mapView);
             return true;
         }
 
@@ -196,4 +222,5 @@ abstract class Builder implements MapViewListener {
             return false;
         }
     }
+
 }

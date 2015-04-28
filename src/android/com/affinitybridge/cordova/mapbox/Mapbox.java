@@ -3,7 +3,6 @@ package com.affinitybridge.cordova.mapbox;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 
-import org.json.JSONObject;
 import org.json.JSONArray;
 import org.json.JSONException;
 
@@ -11,7 +10,6 @@ import android.util.Log;
 import android.app.Activity;
 import android.content.res.Resources;
 import android.content.Intent;
-import android.view.View;
 
 import com.mapbox.mapboxsdk.geometry.BoundingBox;
 import com.mapbox.mapboxsdk.views.MapView;

@@ -2,6 +2,7 @@ package com.affinitybridge.cordova.mapbox;
 
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.drawable.GradientDrawable;
 import android.util.Log;
 
 import com.cocoahero.android.geojson.Feature;
@@ -24,22 +25,33 @@ public class PolygonBuilder extends Builder {
 
     final protected float strokeWidth = 5;
 
-    protected PathOverlay outerRing;
+    protected PathOverlay outerRingStroke;
+
+    protected PathOverlay outerRingFill;
 
     public PolygonBuilder(MapView mapView) {
         super(mapView);
-        this.outerRing = new PathOverlay(this.lineColor, this.strokeWidth);
-        this.outerRing.getPaint().setStyle(Paint.Style.FILL_AND_STROKE);
+        this.outerRingStroke = new PathOverlay(this.lineColor, this.strokeWidth);
+        this.outerRingStroke.getPaint().setStyle(Paint.Style.STROKE);
+        this.outerRingStroke.getPaint().setAlpha(100);
+        this.outerRingStroke.getPaint().setStrokeWidth(3);
+
+        this.outerRingFill = new PathOverlay(this.lineColor, 0);
+        this.outerRingFill.getPaint().setStyle(Paint.Style.FILL);
+        this.outerRingFill.getPaint().setAlpha(50);
 
         // Prevent glitching when panning & zooming map (see: https://github.com/mapbox/mapbox-android-sdk/issues/461).
-        this.outerRing.setOptimizePath(false);
+        this.outerRingStroke.setOptimizePath(false);
+        this.outerRingFill.setOptimizePath(false);
 
-        this.mapView.getOverlays().add(this.outerRing);
+        this.mapView.getOverlays().add(this.outerRingStroke);
+        this.mapView.getOverlays().add(this.outerRingFill);
     }
 
     @Override
     protected boolean add(LatLng position) {
-        this.outerRing.addPoint(position);
+        this.outerRingStroke.addPoint(position);
+        this.outerRingFill.addPoint(position);
 
         Log.d("PolygonBuilder", "add().");
 
@@ -49,13 +61,15 @@ public class PolygonBuilder extends Builder {
     @Override
     protected void remove(int index) {
         this.reset();
-        Log.d("PolygonBuilder", String.format("remove() latLngs.size(): %d, ring.getNumberOfPoints(): %d", this.latLngs.size(), this.outerRing.getNumberOfPoints()));
+        Log.d("PolygonBuilder", String.format("remove() latLngs.size(): %d, ring.getNumberOfPoints(): %d", this.latLngs.size(), this.outerRingStroke.getNumberOfPoints()));
     }
 
     @Override
     protected void reset() {
-        this.outerRing.clearPath();
-        this.outerRing.addPoints(this.latLngs);
+        this.outerRingStroke.clearPath();
+        this.outerRingFill.clearPath();
+        this.outerRingStroke.addPoints(this.latLngs);
+        this.outerRingFill.addPoints(this.latLngs);
     }
 
     @Override

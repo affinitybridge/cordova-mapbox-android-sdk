@@ -61,6 +61,8 @@
     <source-file src="src/android/com/affinitybridge/cordova/mapbox/LineBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
     <source-file src="src/android/com/affinitybridge/cordova/mapbox/PolygonBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
 
+    <source-file src="src/android/res/drawable/vertex_marker.xml" target-dir="res/drawable" />
+
     <source-file src="src/android/res/drawable/ic_action_new.png" target-dir="res/drawable" />
     <source-file src="src/android/res/drawable-mdpi/ic_action_new.png" target-dir="res/drawable-mdpi" />
     <source-file src="src/android/res/drawable-hdpi/ic_action_new.png" target-dir="res/drawable-hdpi" />
