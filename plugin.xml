@@ -60,8 +60,10 @@
     <source-file src="src/android/com/affinitybridge/cordova/mapbox/MarkerBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
     <source-file src="src/android/com/affinitybridge/cordova/mapbox/LineBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
     <source-file src="src/android/com/affinitybridge/cordova/mapbox/PolygonBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
+    <source-file src="src/android/com/affinitybridge/cordova/mapbox/Vertex.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
 
     <source-file src="src/android/res/drawable/vertex_marker.xml" target-dir="res/drawable" />
+    <source-file src="src/android/res/drawable/fab_label_background.xml" target-dir="res/drawable" />
 
     <source-file src="src/android/res/drawable/ic_action_new.png" target-dir="res/drawable" />
     <source-file src="src/android/res/drawable-mdpi/ic_action_new.png" target-dir="res/drawable-mdpi" />
@@ -98,9 +100,12 @@
 
     <source-file src="src/android/res/menu/context_menu_add_feature.xml" target-dir="res/menu" />
 
+    <source-file src="src/android/res/values/colors.xml" target-dir="res/values" />
+    <source-file src="src/android/res/values/styles.xml" target-dir="res/values" />
+
     <source-file src="assets/test.MBTiles" target-dir="assets/" />
 
-    <framework src="libs/android/mapbox-android-sdk/mapbox.gradle" custom="true" type="gradleReference" />
+    <framework src="src/android/deps.gradle" custom="true" type="gradleReference" />
   </platform>
 
 </plugin>

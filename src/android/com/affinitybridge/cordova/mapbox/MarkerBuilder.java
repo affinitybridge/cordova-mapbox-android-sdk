@@ -1,7 +1,7 @@
 package com.affinitybridge.cordova.mapbox;
 
-import android.graphics.Color;
 import android.util.Log;
+import android.view.View;
 
 import com.cocoahero.android.geojson.Feature;
 import com.cocoahero.android.geojson.Point;
@@ -12,26 +12,48 @@ import com.mapbox.mapboxsdk.views.MapView;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
+
 /**
  * Created by tnightingale on 15-04-20.
  */
-public class MarkerBuilder extends Builder {
+public class MarkerBuilder implements Builder.BuilderInterface, View.OnClickListener {
 
-    public MarkerBuilder(MapView mapView) {
-        super(mapView);
+    protected MapView mapView;
+
+    protected Builder builder;
+
+    protected int maxMarkers = 1;
+
+    protected int count = 0;
+
+    protected ArrayList<LatLng> latLngs;
+
+    public MarkerBuilder(MapView mv, Builder builder) {
+        this.mapView = mv;
+        this.builder = builder;
+        this.latLngs = new ArrayList<LatLng>();
     }
 
-    @Override
-    protected boolean add(LatLng position) {
-        return this.latLngs.isEmpty();
+    public ArrayList<LatLng> getLatLngs() {
+        return this.latLngs;
     }
 
-    @Override
-    protected void remove(int index) {
-
+    public boolean add(LatLng position) {
+        if (this.count++ < this.maxMarkers) {
+            return true;
+        }
+        return false;
     }
 
-    @Override
+    public void remove(int index) {
+        this.count--;
+    }
+
+    public void reset() {
+        this.count = 0;
+    }
+
     public JSONObject toJSON() {
         Point p = new Point();
         for (int i = 0; i < this.latLngs.size(); i++) {
@@ -47,4 +69,8 @@ public class MarkerBuilder extends Builder {
         }
     }
 
+    @Override
+    public void onClick(View v) {
+        this.builder.addPoint(this);
+    }
 }

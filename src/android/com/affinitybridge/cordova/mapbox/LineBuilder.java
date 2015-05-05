@@ -2,6 +2,7 @@ package com.affinitybridge.cordova.mapbox;
 
 import android.graphics.Color;
 import android.util.Log;
+import android.view.View;
 
 import com.cocoahero.android.geojson.Feature;
 import com.cocoahero.android.geojson.LineString;
@@ -13,25 +14,38 @@ import com.mapbox.mapboxsdk.views.MapView;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
+
 /**
  * Created by tnightingale on 15-04-20.
  */
-public class LineBuilder extends Builder {
+public class LineBuilder implements Builder.BuilderInterface, View.OnClickListener {
 
     final protected int lineColor = Color.RED;
 
     final protected float strokeWidth = 5;
 
+    protected MapView mapView;
+
+    protected Builder builder;
+
     protected PathOverlay line;
 
-    public LineBuilder(MapView mapView) {
-        super(mapView);
+    protected ArrayList<LatLng> latLngs;
+
+    public LineBuilder(MapView mv, Builder builder) {
+        this.mapView = mv;
+        this.builder = builder;
+        this.latLngs = new ArrayList<LatLng>();
         this.line = new PathOverlay(this.lineColor, this.strokeWidth);
         this.mapView.getOverlays().add(this.line);
     }
 
-    @Override
-    protected boolean add(LatLng position) {
+    public ArrayList<LatLng> getLatLngs() {
+        return this.latLngs;
+    }
+
+    public boolean add(LatLng position) {
         this.line.addPoint(position);
 
         Log.d("LineBuilder", "add().");
@@ -39,19 +53,16 @@ public class LineBuilder extends Builder {
         return true;
     }
 
-    @Override
-    protected void remove(int index) {
+    public void remove(int index) {
         this.reset();
         Log.d("LineBuilder", String.format("remove() latLngs.size(): %d, line.getNumberOfPoints(): %d", this.latLngs.size(), this.line.getNumberOfPoints()));
     }
 
-    @Override
-    protected void reset() {
+    public void reset() {
         this.line.clearPath();
         this.line.addPoints(this.latLngs);
     }
 
-    @Override
     public JSONObject toJSON() {
         LineString ls = new LineString();
         for (int i = 0; i < this.latLngs.size(); i++) {
@@ -67,4 +78,8 @@ public class LineBuilder extends Builder {
         }
     }
 
+    @Override
+    public void onClick(View v) {
+        this.builder.addPoint(this);
+    }
 }
