@@ -35,7 +35,8 @@
       <activity
         android:name="com.affinitybridge.cordova.mapbox.MapEditorActivity"
         android:label="Add features"
-        android:parentActivityName="$PACKAGE_NAME.MainActivity">
+        android:parentActivityName="$PACKAGE_NAME.MainActivity"
+        android:configChanges="orientation|screenSize|uiMode">
       </activity>
     </config-file>
 
@@ -57,9 +58,9 @@
     <source-file src="src/android/com/affinitybridge/cordova/mapbox/MapEditorActivity.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
     <source-file src="src/android/com/affinitybridge/cordova/mapbox/MarkerShadowBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
     <source-file src="src/android/com/affinitybridge/cordova/mapbox/Builder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
-    <source-file src="src/android/com/affinitybridge/cordova/mapbox/MarkerBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
-    <source-file src="src/android/com/affinitybridge/cordova/mapbox/LineBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
-    <source-file src="src/android/com/affinitybridge/cordova/mapbox/PolygonBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
+    <source-file src="src/android/com/affinitybridge/cordova/mapbox/PointGeometry.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
+    <source-file src="src/android/com/affinitybridge/cordova/mapbox/LineGeometry.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
+    <source-file src="src/android/com/affinitybridge/cordova/mapbox/PolygonGeometry.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
     <source-file src="src/android/com/affinitybridge/cordova/mapbox/Vertex.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
 
     <source-file src="src/android/res/drawable/vertex_marker.xml" target-dir="res/drawable" />

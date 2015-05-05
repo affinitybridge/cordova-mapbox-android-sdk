@@ -4,7 +4,6 @@ import android.graphics.Color;
 import android.graphics.Paint;
 
 import android.util.Log;
-import android.view.View;
 
 import com.cocoahero.android.geojson.Feature;
 import com.cocoahero.android.geojson.Polygon;
@@ -22,7 +21,7 @@ import java.util.ArrayList;
 /**
  * Created by tnightingale on 15-04-20.
  */
-public class PolygonBuilder implements Builder.BuilderInterface, View.OnClickListener {
+public class PolygonGeometry implements Builder.GeometryInterface {
 
     final protected int lineColor = Color.RED;
 
@@ -38,7 +37,7 @@ public class PolygonBuilder implements Builder.BuilderInterface, View.OnClickLis
 
     protected ArrayList<LatLng> latLngs;
 
-    public PolygonBuilder(MapView mv, Builder builder) {
+    public PolygonGeometry(MapView mv, Builder builder) {
         this.mapView = mv;
         this.builder = builder;
         this.latLngs = new ArrayList<LatLng>();
@@ -102,8 +101,4 @@ public class PolygonBuilder implements Builder.BuilderInterface, View.OnClickLis
         }
     }
 
-    @Override
-    public void onClick(View v) {
-        this.builder.addPoint(this);
-    }
 }

@@ -2,7 +2,6 @@ package com.affinitybridge.cordova.mapbox;
 
 import android.graphics.Color;
 import android.util.Log;
-import android.view.View;
 
 import com.cocoahero.android.geojson.Feature;
 import com.cocoahero.android.geojson.LineString;
@@ -19,7 +18,7 @@ import java.util.ArrayList;
 /**
  * Created by tnightingale on 15-04-20.
  */
-public class LineBuilder implements Builder.BuilderInterface, View.OnClickListener {
+public class LineGeometry implements Builder.GeometryInterface {
 
     final protected int lineColor = Color.RED;
 
@@ -33,7 +32,7 @@ public class LineBuilder implements Builder.BuilderInterface, View.OnClickListen
 
     protected ArrayList<LatLng> latLngs;
 
-    public LineBuilder(MapView mv, Builder builder) {
+    public LineGeometry(MapView mv, Builder builder) {
         this.mapView = mv;
         this.builder = builder;
         this.latLngs = new ArrayList<LatLng>();
@@ -78,8 +77,4 @@ public class LineBuilder implements Builder.BuilderInterface, View.OnClickListen
         }
     }
 
-    @Override
-    public void onClick(View v) {
-        this.builder.addPoint(this);
-    }
 }

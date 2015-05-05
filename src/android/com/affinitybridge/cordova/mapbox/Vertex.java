@@ -17,14 +17,14 @@ class Vertex {
 
     protected Vertex middleRight;
 
-    protected Builder.BuilderInterface owner;
+    protected Builder.GeometryInterface owner;
 
-    public Vertex(Builder.BuilderInterface o, Marker m) {
+    public Vertex(Builder.GeometryInterface o, Marker m) {
         this.marker = m;
         this.owner = o;
     }
 
-    public Builder.BuilderInterface getOwner() {
+    public Builder.GeometryInterface getOwner() {
         return this.owner;
     }
 

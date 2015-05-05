@@ -32,16 +32,11 @@ import com.getbase.floatingactionbutton.FloatingActionButton;
 import com.getbase.floatingactionbutton.FloatingActionsMenu;
 import com.mapbox.mapboxsdk.geometry.BoundingBox;
 import com.mapbox.mapboxsdk.geometry.LatLng;
-import com.mapbox.mapboxsdk.overlay.GpsLocationProvider;
-import com.mapbox.mapboxsdk.overlay.UserLocationOverlay;
 import com.mapbox.mapboxsdk.tileprovider.MapTileLayerBase;
 import com.mapbox.mapboxsdk.util.GeoUtils;
 import com.mapbox.mapboxsdk.views.MapView;
 
-import org.chromium.content.browser.SelectActionModeCallback;
 import org.json.JSONException;
-
-import java.util.ArrayList;
 
 public class MapEditorActivity extends Activity {
 
@@ -51,7 +46,9 @@ public class MapEditorActivity extends Activity {
 
     protected ActionMode mActionMode;
 
-    protected boolean isCreatingFeature = false;
+    protected FloatingActionsMenu addMenu;
+
+    protected FloatingActionButton addVertex;
 
     protected ActionMode.Callback mActionModeCallback = new ActionMode.Callback() {
 
@@ -90,10 +87,10 @@ public class MapEditorActivity extends Activity {
         @Override
         public void onDestroyActionMode(ActionMode mode) {
             Log.d("ActionMode.Callback", "onDestroyActionMode()");
+            featureBuilder.stopFeature();
             mActionMode = null;
-            findViewById(resource("id", "action_add_vertex")).setVisibility(View.INVISIBLE);
-            findViewById(resource("id", "actions_add")).setVisibility(View.VISIBLE);
-            isCreatingFeature = false;
+            addVertex.setVisibility(View.INVISIBLE);
+            addMenu.setVisibility(View.VISIBLE);
         }
     };
 
@@ -102,6 +99,15 @@ public class MapEditorActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         setContentView(this.resource("layout", "map_editor"));
+
+        this.addMenu = (FloatingActionsMenu) this.findViewById(this.resource("id", "actions_add"));
+        this.addVertex = (FloatingActionButton) this.findViewById(this.resource("id", "action_add_vertex"));
+        this.addVertex.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                featureBuilder.addPoint();
+            }
+        });
 
         this.mapView = (MapView) this.findViewById(this.resource("id", "mapeditor"));
 
@@ -153,33 +159,12 @@ public class MapEditorActivity extends Activity {
     }
 
     public void initAddMenuButtons() {
-        final FloatingActionsMenu addMenu = (FloatingActionsMenu) this.findViewById(this.resource("id", "actions_add"));
-        final FloatingActionButton addVertex = (FloatingActionButton) this.findViewById(this.resource("id", "action_add_vertex"));
-
-        addMenu.setOnFloatingActionsMenuUpdateListener(new FloatingActionsMenu.OnFloatingActionsMenuUpdateListener() {
-            @Override
-            public void onMenuExpanded() {
-
-            }
-
-            @Override
-            public void onMenuCollapsed() {
-                if (isCreatingFeature) {
-                    addMenu.setVisibility(View.INVISIBLE);
-                    addVertex.setVisibility(View.VISIBLE);
-                }
-            }
-        });
-
         FloatingActionButton addPoint = new FloatingActionButton(this.getBaseContext());
         addPoint.setTitle("Add point");
         addPoint.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                isCreatingFeature = true;
-                addMenu.collapse();
-                mActionMode = startActionMode(mActionModeCallback);
-                addVertex.setOnClickListener(new MarkerBuilder(mapView, featureBuilder));
+                addFeatureOnClick(new PointGeometry(mapView, featureBuilder));
             }
         });
         addMenu.addButton(addPoint);
@@ -189,10 +174,7 @@ public class MapEditorActivity extends Activity {
         addLine.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                isCreatingFeature = true;
-                addMenu.collapse();
-                mActionMode = startActionMode(mActionModeCallback);
-                addVertex.setOnClickListener(new LineBuilder(mapView, featureBuilder));
+                addFeatureOnClick(new LineGeometry(mapView, featureBuilder));
             }
         });
         addMenu.addButton(addLine);
@@ -202,13 +184,19 @@ public class MapEditorActivity extends Activity {
         addPoly.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                isCreatingFeature = true;
-                addMenu.collapse();
-                mActionMode = startActionMode(mActionModeCallback);
-                addVertex.setOnClickListener(new PolygonBuilder(mapView, featureBuilder));
+               addFeatureOnClick(new PolygonGeometry(mapView, featureBuilder));
             }
         });
         addMenu.addButton(addPoly);
+    }
+
+    public void addFeatureOnClick(Builder.GeometryInterface geometry) {
+        this.addMenu.collapse();
+        this.addMenu.setVisibility(View.INVISIBLE);
+        this.addVertex.setVisibility(View.VISIBLE);
+
+        this.mActionMode = startActionMode(mActionModeCallback);
+        this.featureBuilder.startFeature(geometry);
     }
 
     @Override
@@ -227,19 +215,9 @@ public class MapEditorActivity extends Activity {
         return res.getIdentifier(name, type, packageName);
     }
 
-    public static Bitmap toBitmap(Drawable anyDrawable){
-        Bitmap bmp = Bitmap.createBitmap(anyDrawable.getIntrinsicWidth(), anyDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bmp);
-        anyDrawable.setBounds(0, 0, anyDrawable.getIntrinsicWidth(), anyDrawable.getIntrinsicHeight());
-        anyDrawable.draw(canvas);
-        return bmp;
-    }
-
     public void parseGeoJSON(GeoJSONObject geojson) {
         Log.d("Builder", "parseGeoJSON()");
         Log.d("Builder", String.format("Type: %s.", geojson.getType()));
-
-        ArrayList<LatLng> coords = new ArrayList<LatLng>();
 
         if (geojson instanceof FeatureCollection) {
             FeatureCollection fc = (FeatureCollection) geojson;
@@ -250,15 +228,15 @@ public class MapEditorActivity extends Activity {
         else if (geojson instanceof Feature) {
             Log.d("Builder", "instanceof Feature");
             Feature feature = (Feature) geojson;
-            drawGeometry(feature.getGeometry(), coords);
+            drawGeometry(feature.getGeometry());
         }
         else {
             Log.d("Builder", "Not instanceof Feature.");
         }
     }
 
-    public void drawGeometry(Geometry geom, ArrayList<LatLng> coords) {
-        Builder.BuilderInterface builder;
+    public void drawGeometry(Geometry geom) {
+        Builder.GeometryInterface geometryBuilder;
 //        if (geom instanceof GeometryCollection) {
 //            GeometryCollection gc = (GeometryCollection) geom;
 //            for (Geometry g : gc.getGeometries()) {
@@ -272,17 +250,17 @@ public class MapEditorActivity extends Activity {
 //            }
 //        }
         if (geom instanceof Polygon) {
-            builder = new PolygonBuilder(this.mapView, this.featureBuilder);
+            geometryBuilder = new PolygonGeometry(this.mapView, this.featureBuilder);
             Polygon poly = (Polygon) geom;
             for (Ring ring : poly.getRings()) {
                 for (Position position : ring.getPositions()) {
                     //this.addLatLng(new LatLng(position.getLatitude(), position.getLongitude()));
-                    builder.getLatLngs().add(new LatLng(position.getLatitude(), position.getLongitude()));
+                    geometryBuilder.getLatLngs().add(new LatLng(position.getLatitude(), position.getLongitude()));
                 }
             }
-            this.featureBuilder.initMarkers(builder);
+            this.featureBuilder.initMarkers(geometryBuilder);
 
-            BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(builder.getLatLngs(), 0.1);
+            BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(geometryBuilder.getLatLngs(), 0.1);
             mapView.zoomToBoundingBox(box);
         }
 //        else if (geom instanceof MultiLineString) {
@@ -292,15 +270,15 @@ public class MapEditorActivity extends Activity {
 //            }
 //        }
         else if (geom instanceof LineString) {
-            builder = new LineBuilder(this.mapView, this.featureBuilder);
+            geometryBuilder = new LineGeometry(this.mapView, this.featureBuilder);
             LineString line = (LineString) geom;
             for (Position position : line.getPositions()) {
                 //this.addLatLng(new LatLng(position.getLatitude(), position.getLongitude()));
-                builder.getLatLngs().add(new LatLng(position.getLatitude(), position.getLongitude()));
+                geometryBuilder.getLatLngs().add(new LatLng(position.getLatitude(), position.getLongitude()));
             }
-            this.featureBuilder.initMarkers(builder);
+            this.featureBuilder.initMarkers(geometryBuilder);
 
-            BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(builder.getLatLngs(), 0.1);
+            BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(geometryBuilder.getLatLngs(), 0.1);
             mapView.zoomToBoundingBox(box);
         }
 //        else if (geom instanceof MultiPoint) {
@@ -310,20 +288,28 @@ public class MapEditorActivity extends Activity {
 //            }
 //        }
         else if (geom instanceof Point) {
-            builder = new MarkerBuilder(this.mapView, this.featureBuilder);
+            geometryBuilder = new PointGeometry(this.mapView, this.featureBuilder);
             Point point = (Point) geom;
             Position p = point.getPosition();
             //this.addLatLng(new LatLng(p.getLatitude(), p.getLongitude()));
-            builder.getLatLngs().add(new LatLng(p.getLatitude(), p.getLongitude()));
-            this.featureBuilder.initMarkers(builder);
+            geometryBuilder.getLatLngs().add(new LatLng(p.getLatitude(), p.getLongitude()));
+            this.featureBuilder.initMarkers(geometryBuilder);
 
-            BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(builder.getLatLngs(), 0.1);
+            BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(geometryBuilder.getLatLngs(), 0.1);
             mapView.zoomToBoundingBox(box);
         }
         else {
             // Unsupported geometry type.
             Log.e("Builder", String.format("Unsupported GeoJSON geometry type: %s.", geom.getType()));
         }
+    }
+
+    public static Bitmap toBitmap(Drawable anyDrawable){
+        Bitmap bmp = Bitmap.createBitmap(anyDrawable.getIntrinsicWidth(), anyDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmp);
+        anyDrawable.setBounds(0, 0, anyDrawable.getIntrinsicWidth(), anyDrawable.getIntrinsicHeight());
+        anyDrawable.draw(canvas);
+        return bmp;
     }
 
 }

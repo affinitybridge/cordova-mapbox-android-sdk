@@ -1,5 +1,6 @@
 package com.affinitybridge.cordova.mapbox;
 
+import android.graphics.Point;
 import android.graphics.PointF;
 
 import android.graphics.drawable.Drawable;
@@ -7,21 +8,13 @@ import android.util.Log;
 import android.view.DragEvent;
 import android.view.View;
 
-import com.cocoahero.android.geojson.Feature;
-import com.cocoahero.android.geojson.FeatureCollection;
-import com.cocoahero.android.geojson.GeoJSONObject;
-import com.cocoahero.android.geojson.Geometry;
-import com.cocoahero.android.geojson.LineString;
-import com.cocoahero.android.geojson.Point;
-import com.cocoahero.android.geojson.Polygon;
-import com.cocoahero.android.geojson.Position;
-import com.cocoahero.android.geojson.Ring;
-import com.mapbox.mapboxsdk.geometry.BoundingBox;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.overlay.Icon;
 import com.mapbox.mapboxsdk.overlay.Marker;
-import com.mapbox.mapboxsdk.util.GeoUtils;
+import com.mapbox.mapboxsdk.overlay.Overlay;
+import com.mapbox.mapboxsdk.overlay.SafeDrawOverlay;
 import com.mapbox.mapboxsdk.views.MapView;
+import com.mapbox.mapboxsdk.views.safecanvas.ISafeCanvas;
 import com.mapbox.mapboxsdk.views.util.Projection;
 
 import com.vividsolutions.jts.geom.Coordinate;
@@ -38,11 +31,13 @@ class Builder {
 
     protected MapView mapView;
 
-    protected BuilderInterface activeBuilder;
+    protected GeometryInterface activeShape;
 
     protected int selected = -1;
 
     protected Vertex lastAdded;
+
+    protected Overlay nextMarkerOverlay;
 
     protected ArrayList<Vertex> vertices;
 
@@ -60,6 +55,42 @@ class Builder {
         this.mapView = mv;
         this.vertices = new ArrayList<Vertex>();
         this.markers = new ArrayList<Marker>();
+
+        this.nextMarkerOverlay = new SafeDrawOverlay() {
+            /**
+             * Most of this is lifted from com.mapbox.mapboxsdk.overlay.ItemizedOverlay's
+             * onDrawItem() method.
+             *
+             * @param iSafeCanvas
+             * @param mapView
+             * @param b
+             */
+            @Override
+            protected void drawSafe(ISafeCanvas iSafeCanvas, MapView mapView, boolean b) {
+                iSafeCanvas.save();
+
+                Projection p = mapView.getProjection();
+                int centerX = p.getCenterX(), centerY = p.getCenterY();
+
+                // Calculating marker center to use for offset.
+                PointF anchor = new PointF(0.5f, 0.5f);
+                int markerWidth = vertexMiddleImage.getIntrinsicWidth(), markerHeight = vertexMiddleImage.getIntrinsicHeight();
+                Point offset = new Point((int) (-anchor.x * markerWidth), (int) (-anchor.y * markerHeight));
+
+                // Handling canvas scale to ensure marker is drawn at fixed size.
+                final float mapScale = 1 / mapView.getScale();
+                iSafeCanvas.scale(mapScale, mapScale, centerX, centerY);
+
+                // Drawable's don't have bounding dimensions by default.
+                vertexMiddleImage.setBounds(0, 0, markerWidth, markerHeight);
+                Overlay.drawAt(iSafeCanvas.getSafeCanvas(), vertexMiddleImage, new Point(centerX, centerY), offset, false, 0);
+
+                iSafeCanvas.restore();
+
+                activeShape.reset();
+                activeShape.add(mapView.getCenter());
+            }
+        };
 
         this.markerOverlay = new DraggableItemizedIconOverlay(this.mapView.getContext(), new ArrayList<Marker>(), new DraggableItemizedIconOverlay.OnItemDraggableGestureListener<Marker>() {
             public boolean onItemSingleTapUp(final int iconOverlayMarkerIndex, final Marker item) {
@@ -119,6 +150,21 @@ class Builder {
         this.vertexMiddleImage = img;
     }
 
+    public GeometryInterface getActiveShape() {
+        return this.activeShape;
+    }
+
+    public void startFeature(GeometryInterface geometry) {
+        mapView.addOverlay(this.nextMarkerOverlay);
+        this.activeShape = geometry;
+    }
+
+    public void stopFeature() {
+        mapView.removeOverlay(this.nextMarkerOverlay);
+        this.activeShape.reset();
+        this.activeShape = null;
+    }
+
     protected void select(int index) {
         Vertex vertex = this.vertices.get(index);
         this.select(index, vertex);
@@ -128,12 +174,12 @@ class Builder {
         this.deselect();
         this.selected = index;
 
-        BuilderInterface builder = vertex.getOwner();
+        GeometryInterface geometry = vertex.getOwner();
 
         Log.d("Builder", String.format("select() vertex.isGhost() ? %b.", vertex.isGhost()));
-        if (vertex.isGhost() && builder.add(vertex.getPoint())) {
+        if (vertex.isGhost() && geometry.add(vertex.getPoint())) {
             // Promote middle vertex to real vertex.
-            ArrayList<LatLng> latLngs = builder.getLatLngs();
+            ArrayList<LatLng> latLngs = geometry.getLatLngs();
             int insertPos = latLngs.indexOf(vertex.getNext().getPoint());
             latLngs.add(insertPos, vertex.getPoint());
             vertex.setGhost(false);
@@ -144,7 +190,7 @@ class Builder {
             createMiddleMarker(vertex.getPrev(), vertex);
             createMiddleMarker(vertex, vertex.getNext());
 
-            builder.reset();
+            geometry.reset();
         }
 
         if (this.vertexSelectedImage != null) {
@@ -175,16 +221,16 @@ class Builder {
         this.selected = -1;
     }
 
-    protected void initMarkers(BuilderInterface builder) {
-        ArrayList<LatLng> latLngs = builder.getLatLngs();
+    protected void initMarkers(GeometryInterface geometry) {
+        ArrayList<LatLng> latLngs = geometry.getLatLngs();
         ArrayList<Vertex> newVertices = new ArrayList<Vertex>();
 
         // Initialize markers for all vertices.
         for (LatLng latLng : latLngs) {
             Log.d("Builder", String.format("LatLng: (%f, %f).", latLng.getLatitude(), latLng.getLongitude()));
-            if (builder.add(latLng)) {
+            if (geometry.add(latLng)) {
                 Marker marker = this.createMarker(latLng, this.vertexImage);
-                Vertex vertex = new Vertex(builder, marker);
+                Vertex vertex = new Vertex(geometry, marker);
                 newVertices.add(vertex);
             }
         }
@@ -235,12 +281,18 @@ class Builder {
         return new LatLng(mid.y, mid.x);
     }
 
-    final public void addPoint(BuilderInterface builder) {
+    public void addPoint() {
+        if (this.activeShape != null) {
+            this.addPoint(this.activeShape);
+        }
+    }
+
+    final public void addPoint(GeometryInterface geometry) {
         LatLng position = mapView.getCenter();
 
-        if (builder.add(position)) {
+        if (geometry.add(position)) {
             Marker marker = this.createMarker(position, this.vertexImage);
-            Vertex vertex = new Vertex(builder, marker);
+            Vertex vertex = new Vertex(geometry, marker);
             this.vertices.add(vertex);
 
             ArrayList<LatLng> latLngs = vertex.getOwner().getLatLngs();
@@ -323,7 +375,7 @@ class Builder {
     }
 
     public JSONObject toJSON() {
-        return new JSONObject();//this.activeBuilder.toJSON();
+        return new JSONObject();//this.activeShape.toJSON();
     }
 
     private class MarkerDragEventListener implements View.OnDragListener {
@@ -405,7 +457,7 @@ class Builder {
         }
     }
 
-    public static interface BuilderInterface {
+    public static interface GeometryInterface {
 
         public void reset();
 

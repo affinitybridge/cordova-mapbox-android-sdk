@@ -1,8 +1,5 @@
 package com.affinitybridge.cordova.mapbox;
 
-import android.util.Log;
-import android.view.View;
-
 import com.cocoahero.android.geojson.Feature;
 import com.cocoahero.android.geojson.Point;
 import com.cocoahero.android.geojson.Position;
@@ -17,7 +14,7 @@ import java.util.ArrayList;
 /**
  * Created by tnightingale on 15-04-20.
  */
-public class MarkerBuilder implements Builder.BuilderInterface, View.OnClickListener {
+public class PointGeometry implements Builder.GeometryInterface {
 
     protected MapView mapView;
 
@@ -29,7 +26,7 @@ public class MarkerBuilder implements Builder.BuilderInterface, View.OnClickList
 
     protected ArrayList<LatLng> latLngs;
 
-    public MarkerBuilder(MapView mv, Builder builder) {
+    public PointGeometry(MapView mv, Builder builder) {
         this.mapView = mv;
         this.builder = builder;
         this.latLngs = new ArrayList<LatLng>();
@@ -67,10 +64,5 @@ public class MarkerBuilder implements Builder.BuilderInterface, View.OnClickList
         } catch (JSONException e) {
             return null;
         }
-    }
-
-    @Override
-    public void onClick(View v) {
-        this.builder.addPoint(this);
     }
 }
