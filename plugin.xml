@@ -55,6 +55,7 @@
     </config-file>
 
     <source-file src="src/android/com/affinitybridge/cordova/mapbox/Mapbox.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
+    <source-file src="src/android/com/affinitybridge/cordova/mapbox/DraggableItemizedIconOverlay.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
     <source-file src="src/android/com/affinitybridge/cordova/mapbox/MapEditorActivity.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
     <source-file src="src/android/com/affinitybridge/cordova/mapbox/MarkerShadowBuilder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
     <source-file src="src/android/com/affinitybridge/cordova/mapbox/Builder.java" target-dir="src/com/affinitybridge/cordova/mapbox" />
