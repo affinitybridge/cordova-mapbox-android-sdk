@@ -38,6 +38,8 @@ import com.mapbox.mapboxsdk.views.MapView;
 
 import org.json.JSONException;
 
+import java.util.ArrayList;
+
 public class MapEditorActivity extends Activity {
 
     protected MapView mapView;
@@ -105,7 +107,7 @@ public class MapEditorActivity extends Activity {
         this.addVertex.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                featureBuilder.addPoint();
+                featureBuilder.addLatLng();
             }
         });
 
@@ -236,7 +238,7 @@ public class MapEditorActivity extends Activity {
     }
 
     public void drawGeometry(Geometry geom) {
-        Builder.GeometryInterface geometryBuilder;
+        ArrayList<LatLng> latLngs = new ArrayList<LatLng>();
 //        if (geom instanceof GeometryCollection) {
 //            GeometryCollection gc = (GeometryCollection) geom;
 //            for (Geometry g : gc.getGeometries()) {
@@ -250,17 +252,16 @@ public class MapEditorActivity extends Activity {
 //            }
 //        }
         if (geom instanceof Polygon) {
-            geometryBuilder = new PolygonGeometry(this.mapView, this.featureBuilder);
             Polygon poly = (Polygon) geom;
             for (Ring ring : poly.getRings()) {
                 for (Position position : ring.getPositions()) {
                     //this.addLatLng(new LatLng(position.getLatitude(), position.getLongitude()));
-                    geometryBuilder.getLatLngs().add(new LatLng(position.getLatitude(), position.getLongitude()));
+                    latLngs.add(new LatLng(position.getLatitude(), position.getLongitude()));
                 }
             }
-            this.featureBuilder.initMarkers(geometryBuilder);
+            this.featureBuilder.initMarkers(this.featureBuilder.createPolygon(), latLngs);
 
-            BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(geometryBuilder.getLatLngs(), 0.1);
+            BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(latLngs, 0.1);
             mapView.zoomToBoundingBox(box);
         }
 //        else if (geom instanceof MultiLineString) {
@@ -270,15 +271,14 @@ public class MapEditorActivity extends Activity {
 //            }
 //        }
         else if (geom instanceof LineString) {
-            geometryBuilder = new LineGeometry(this.mapView, this.featureBuilder);
             LineString line = (LineString) geom;
             for (Position position : line.getPositions()) {
                 //this.addLatLng(new LatLng(position.getLatitude(), position.getLongitude()));
-                geometryBuilder.getLatLngs().add(new LatLng(position.getLatitude(), position.getLongitude()));
+                latLngs.add(new LatLng(position.getLatitude(), position.getLongitude()));
             }
-            this.featureBuilder.initMarkers(geometryBuilder);
+            this.featureBuilder.initMarkers(this.featureBuilder.createLineString(), latLngs);
 
-            BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(geometryBuilder.getLatLngs(), 0.1);
+            BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(latLngs, 0.1);
             mapView.zoomToBoundingBox(box);
         }
 //        else if (geom instanceof MultiPoint) {
@@ -288,14 +288,13 @@ public class MapEditorActivity extends Activity {
 //            }
 //        }
         else if (geom instanceof Point) {
-            geometryBuilder = new PointGeometry(this.mapView, this.featureBuilder);
             Point point = (Point) geom;
             Position p = point.getPosition();
             //this.addLatLng(new LatLng(p.getLatitude(), p.getLongitude()));
-            geometryBuilder.getLatLngs().add(new LatLng(p.getLatitude(), p.getLongitude()));
-            this.featureBuilder.initMarkers(geometryBuilder);
+            latLngs.add(new LatLng(p.getLatitude(), p.getLongitude()));
+            this.featureBuilder.initMarkers(this.featureBuilder.createPoint(), latLngs);
 
-            BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(geometryBuilder.getLatLngs(), 0.1);
+            BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(latLngs, 0.1);
             mapView.zoomToBoundingBox(box);
         }
         else {

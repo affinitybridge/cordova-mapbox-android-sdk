@@ -88,7 +88,7 @@ class Builder {
                 iSafeCanvas.restore();
 
                 activeShape.reset();
-                activeShape.add(mapView.getCenter());
+                activeShape.addGhostLatLng(mapView.getCenter());
             }
         };
 
@@ -154,6 +154,21 @@ class Builder {
         return this.activeShape;
     }
 
+    public GeometryInterface createPoint() {
+        GeometryInterface geometry = new PointGeometry(this.mapView, this);
+        return geometry;
+    }
+
+    public GeometryInterface createLineString() {
+        GeometryInterface geometry = new LineGeometry(this.mapView, this);
+        return geometry;
+    }
+
+    public GeometryInterface createPolygon() {
+        GeometryInterface geometry = new PolygonGeometry(this.mapView, this);
+        return geometry;
+    }
+
     public void startFeature(GeometryInterface geometry) {
         mapView.addOverlay(this.nextMarkerOverlay);
         this.activeShape = geometry;
@@ -177,11 +192,11 @@ class Builder {
         GeometryInterface geometry = vertex.getOwner();
 
         Log.d("Builder", String.format("select() vertex.isGhost() ? %b.", vertex.isGhost()));
-        if (vertex.isGhost() && geometry.add(vertex.getPoint())) {
-            // Promote middle vertex to real vertex.
-            ArrayList<LatLng> latLngs = geometry.getLatLngs();
-            int insertPos = latLngs.indexOf(vertex.getNext().getPoint());
-            latLngs.add(insertPos, vertex.getPoint());
+        // Promote middle vertex to real vertex.
+
+        if (vertex.isGhost()) { // && geometry.insertLatLng(insertPos, vertex.getPoint())) {
+            int insertPos = geometry.indexOfLatLng(vertex.getNext().getPoint());
+            geometry.insertLatLng(insertPos, vertex.getPoint());
             vertex.setGhost(false);
 
             updatePrevNext(vertex.getPrev(), vertex);
@@ -221,14 +236,13 @@ class Builder {
         this.selected = -1;
     }
 
-    protected void initMarkers(GeometryInterface geometry) {
-        ArrayList<LatLng> latLngs = geometry.getLatLngs();
+    protected void initMarkers(GeometryInterface geometry, ArrayList<LatLng> latLngs) {
         ArrayList<Vertex> newVertices = new ArrayList<Vertex>();
 
         // Initialize markers for all vertices.
         for (LatLng latLng : latLngs) {
             Log.d("Builder", String.format("LatLng: (%f, %f).", latLng.getLatitude(), latLng.getLongitude()));
-            if (geometry.add(latLng)) {
+            if (geometry.addLatLng(latLng)) {
                 Marker marker = this.createMarker(latLng, this.vertexImage);
                 Vertex vertex = new Vertex(geometry, marker);
                 newVertices.add(vertex);
@@ -281,24 +295,19 @@ class Builder {
         return new LatLng(mid.y, mid.x);
     }
 
-    public void addPoint() {
+    public void addLatLng() {
         if (this.activeShape != null) {
-            this.addPoint(this.activeShape);
+            this.addLatLng(this.activeShape, mapView.getCenter());
         }
     }
 
-    final public void addPoint(GeometryInterface geometry) {
-        LatLng position = mapView.getCenter();
-
-        if (geometry.add(position)) {
+    final public void addLatLng(GeometryInterface geometry, LatLng position) {
+        if (geometry.addLatLng(position)) {
             Marker marker = this.createMarker(position, this.vertexImage);
             Vertex vertex = new Vertex(geometry, marker);
             this.vertices.add(vertex);
 
-            ArrayList<LatLng> latLngs = vertex.getOwner().getLatLngs();
-            latLngs.add(position);
-
-            if (latLngs.size() > 1 && this.lastAdded != null) {
+            if (geometry.size() > 1 && this.lastAdded != null) {
                 this.createMiddleMarker(this.lastAdded, vertex);
                 this.updatePrevNext(this.lastAdded, vertex);
             }
@@ -345,7 +354,6 @@ class Builder {
         this.deselect();
 
         Vertex vertex = this.vertices.remove(index);
-        ArrayList<LatLng> latLngs = vertex.getOwner().getLatLngs();
         Marker marker = this.markers.remove(index);
 
         updatePrevNext(vertex.getPrev(), vertex.getNext());
@@ -362,9 +370,9 @@ class Builder {
         }
 
         this.markerOverlay.removeItem(marker);
-        latLngs.remove(latLngs.indexOf(marker.getPoint()));
 
-        vertex.getOwner().remove(index);
+        GeometryInterface geometry = vertex.getOwner();
+        geometry.remove(marker.getPoint());
 
         if (this.lastAdded == vertex) {
             this.lastAdded = vertex.getPrev();
@@ -385,11 +393,12 @@ class Builder {
         private boolean dragStart(View v, DragEvent event) {
             Vertex vertex = vertices.get(selected);
 
+            GeometryInterface geometry = vertex.getOwner();
             this.activeVertex = vertex;
-            this.activeIndex = vertex.getOwner().getLatLngs().indexOf(vertex.getPoint());
+            this.activeIndex = geometry.indexOfLatLng(vertex.getPoint());
 
             markerOverlay.removeItem(vertex.getMarker());
-            Log.d("Builder", String.format("dragStart() selected: %d, activeIndex: %d", selected, activeIndex));
+            Log.d("Builder", String.format("dragStart() selected: %d, activeIndex: %d, size: %d", selected, activeIndex, geometry.size()));
 
             return true;
         }
@@ -398,7 +407,7 @@ class Builder {
             Projection p = mapView.getProjection();
             LatLng latLng = (LatLng) p.fromPixels(event.getX(), event.getY());
 
-            this.activeVertex.getOwner().getLatLngs().set(this.activeIndex, latLng);
+            this.activeVertex.getOwner().setLatLng(this.activeIndex, latLng);
             // Let implementing classes perform reset action.
             this.activeVertex.getOwner().reset();
 
@@ -424,7 +433,7 @@ class Builder {
             Vertex v = vertices.get(selected);
 
             LatLng latLng = (LatLng) p.fromPixels(event.getX(), event.getY());
-            v.getOwner().getLatLngs().set(this.activeIndex, latLng);
+            v.getOwner().setLatLng(this.activeIndex, latLng);
 
             v.setPoint(latLng);
             markerOverlay.addItem(v.getMarker());
@@ -461,13 +470,23 @@ class Builder {
 
         public void reset();
 
-        public boolean add(LatLng position);
+        public boolean addLatLng(LatLng latLng);
 
-        public void remove(int index);
+        public void addGhostLatLng(LatLng latLng);
+
+        public boolean insertLatLng(int position, LatLng latLng);
+
+        public void setLatLng(int position, LatLng latLng);
+
+        public int indexOfLatLng(LatLng latLng);
+
+        public void remove(int position);
+
+        public void remove(LatLng latLng);
 
         public JSONObject toJSON();
 
-        public ArrayList<LatLng> getLatLngs();
+        public int size();
 
     }
 }

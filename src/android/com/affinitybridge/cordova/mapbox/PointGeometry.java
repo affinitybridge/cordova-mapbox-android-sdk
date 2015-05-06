@@ -32,18 +32,45 @@ public class PointGeometry implements Builder.GeometryInterface {
         this.latLngs = new ArrayList<LatLng>();
     }
 
-    public ArrayList<LatLng> getLatLngs() {
-        return this.latLngs;
+    public int size() {
+        return this.latLngs.size();
     }
 
-    public boolean add(LatLng position) {
+    public void addGhostLatLng(LatLng latLng) {
+
+    }
+
+    public boolean addLatLng(LatLng latLng) {
+        return insertLatLng(-1, latLng);
+    }
+
+    public boolean insertLatLng(int position, LatLng latLng) {
         if (this.count++ < this.maxMarkers) {
+            if (position < 0) {
+                this.latLngs.add(latLng);
+            }
+            else {
+                this.latLngs.add(position, latLng);
+            }
             return true;
         }
         return false;
     }
 
-    public void remove(int index) {
+    public void setLatLng(int position, LatLng latLng) {
+        this.latLngs.set(position, latLng);
+    }
+
+    public int indexOfLatLng(LatLng latLng) {
+        return this.latLngs.indexOf(latLng);
+    }
+
+    public void remove(LatLng latLng) {
+        this.remove(this.indexOfLatLng(latLng));
+    }
+
+    public void remove(int position) {
+        this.latLngs.remove(position);
         this.count--;
     }
 

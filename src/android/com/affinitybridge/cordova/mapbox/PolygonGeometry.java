@@ -58,22 +58,47 @@ public class PolygonGeometry implements Builder.GeometryInterface {
         this.mapView.getOverlays().add(this.outerRingFill);
     }
 
-    public ArrayList<LatLng> getLatLngs() {
-        return this.latLngs;
+    public int size() {
+        return this.latLngs.size();
     }
 
-    public boolean add(LatLng position) {
-        this.outerRingStroke.addPoint(position);
-        this.outerRingFill.addPoint(position);
+    public void addGhostLatLng(LatLng latLng) {
+        this.outerRingStroke.addPoint(latLng);
+        this.outerRingFill.addPoint(latLng);
+    }
 
-        Log.d("PolygonBuilder", "add().");
+    public boolean addLatLng(LatLng latLng) {
+        return this.insertLatLng(-1, latLng);
+    }
 
+    public boolean insertLatLng(int position, LatLng latLng) {
+        this.outerRingStroke.addPoint(latLng);
+        this.outerRingFill.addPoint(latLng);
+        if (position < 0) {
+            this.latLngs.add(latLng);
+        }
+        else {
+            this.latLngs.add(position, latLng);
+        }
         return true;
     }
 
-    public void remove(int index) {
+    public void setLatLng(int position, LatLng latLng) {
+        this.latLngs.set(position, latLng);
+    }
+
+    public int indexOfLatLng(LatLng latLng) {
+        return this.latLngs.indexOf(latLng);
+    }
+
+    public void remove(LatLng latLng) {
+        this.remove(this.indexOfLatLng(latLng));
+    }
+
+    public void remove(int position) {
+        this.latLngs.remove(position);
         this.reset();
-        Log.d("PolygonBuilder", String.format("remove() latLngs.size(): %d, ring.getNumberOfPoints(): %d", this.latLngs.size(), this.outerRingStroke.getNumberOfPoints()));
+        Log.d("PolygonGeometry", String.format("remove() latLngs.size(): %d, ring.getNumberOfPoints(): %d", this.latLngs.size(), this.outerRingStroke.getNumberOfPoints()));
     }
 
     public void reset() {
