@@ -90,32 +90,9 @@ public class Mapbox extends CordovaPlugin {
   }
 
   private void createMBTilesMap(final String fileName) {
-    this.cordova.getActivity().runOnUiThread(new Runnable() {
-      public void run() {
-        Activity activity = cordova.getActivity();
-        MapView mapView = new MapView(webView.getContext());
-        BoundingBox box;
-
-        TileLayer mbTileLayer = new MBTilesLayer(activity, fileName);
-        mapView.setTileSource(new ITileLayer[] {
-          mbTileLayer, new WebSourceTileLayer("mapquest",
-            "http://otile1.mqcdn.com/tiles/1.0.0/osm/{z}/{x}/{y}.png").setName(
-              "MapQuest Open Aerial")
-              .setAttribution("Tiles courtesy of MapQuest and OpenStreetMap contributors.")
-          .setMinimumZoomLevel(1)
-          .setMaximumZoomLevel(18)
-        });
-
-        box = mbTileLayer.getBoundingBox();
-        mapView.setScrollableAreaLimit(box);
-        mapView.setMinZoomLevel(mapView.getTileProvider().getMinimumZoomLevel());
-        mapView.setMaxZoomLevel(mapView.getTileProvider().getMaximumZoomLevel());
-        mapView.setCenter(mapView.getTileProvider().getCenterCoordinate());
-        mapView.setZoom(0);
-        Log.d("MapboxPlugin", "zoomToBoundingBox " + box.toString());
-        activity.setContentView(mapView);
-      }
-    });
+    Intent intent = new Intent(cordova.getActivity(), OfflineMapActivity.class);
+    intent.putExtra(Intent.EXTRA_TEXT, fileName);
+    cordova.getActivity().startActivity(intent);
   }
 
   private void mapEditor() {
