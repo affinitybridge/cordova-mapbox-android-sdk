@@ -78,18 +78,15 @@ public class PointGeometry implements Builder.GeometryInterface {
         this.count = 0;
     }
 
-    public JSONObject toJSON() {
+    public Feature toGeoJSON() {
         Point p = new Point();
         for (int i = 0; i < this.latLngs.size(); i++) {
             LatLng latLng = this.latLngs.get(i);
             p.setPosition(new Position(latLng.getLatitude(), latLng.getLongitude()));
         }
-        try {
-            Feature f = new Feature(p);
-            f.setProperties(new JSONObject());
-            return f.toJSON();
-        } catch (JSONException e) {
-            return null;
-        }
+
+        Feature f = new Feature(p);
+        f.setProperties(new JSONObject());
+        return f;
     }
 }

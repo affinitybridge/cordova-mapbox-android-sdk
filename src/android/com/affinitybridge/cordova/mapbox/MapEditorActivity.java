@@ -166,7 +166,7 @@ public class MapEditorActivity extends Activity {
         addPoint.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                addFeatureOnClick(new PointGeometry(mapView, featureBuilder));
+                addFeatureOnClick(featureBuilder.createPoint());
             }
         });
         addMenu.addButton(addPoint);
@@ -176,7 +176,7 @@ public class MapEditorActivity extends Activity {
         addLine.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                addFeatureOnClick(new LineGeometry(mapView, featureBuilder));
+                addFeatureOnClick(featureBuilder.createLineString());
             }
         });
         addMenu.addButton(addLine);
@@ -186,7 +186,7 @@ public class MapEditorActivity extends Activity {
         addPoly.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-               addFeatureOnClick(new PolygonGeometry(mapView, featureBuilder));
+               addFeatureOnClick(featureBuilder.createPolygon());
             }
         });
         addMenu.addButton(addPoly);

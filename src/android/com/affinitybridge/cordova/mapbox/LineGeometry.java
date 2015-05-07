@@ -91,19 +91,16 @@ public class LineGeometry implements Builder.GeometryInterface {
         this.line.addPoints(this.latLngs);
     }
 
-    public JSONObject toJSON() {
+    public Feature toGeoJSON() {
         LineString ls = new LineString();
         for (int i = 0; i < this.latLngs.size(); i++) {
             LatLng latLng = this.latLngs.get(i);
             ls.addPosition(new Position(latLng.getLatitude(), latLng.getLongitude()));
         }
-        try {
-            Feature f = new Feature(ls);
-            f.setProperties(new JSONObject());
-            return f.toJSON();
-        } catch (JSONException e) {
-            return null;
-        }
+
+        Feature f = new Feature(ls);
+        f.setProperties(new JSONObject());
+        return f;
     }
 
 }

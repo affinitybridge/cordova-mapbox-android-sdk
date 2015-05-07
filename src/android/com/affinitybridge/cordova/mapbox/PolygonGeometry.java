@@ -108,7 +108,7 @@ public class PolygonGeometry implements Builder.GeometryInterface {
         this.outerRingFill.addPoints(this.latLngs);
     }
 
-    public JSONObject toJSON() {
+    public Feature toGeoJSON() {
         Ring ring = new Ring();
 
         for (int i = 0; i < this.latLngs.size(); i++) {
@@ -117,13 +117,9 @@ public class PolygonGeometry implements Builder.GeometryInterface {
         }
 
         Polygon p = new Polygon(ring);
-        try {
-            Feature f = new Feature(p);
-            f.setProperties(new JSONObject());
-            return f.toJSON();
-        } catch (JSONException e) {
-            return null;
-        }
+        Feature f = new Feature(p);
+        f.setProperties(new JSONObject());
+        return f;
     }
 
 }

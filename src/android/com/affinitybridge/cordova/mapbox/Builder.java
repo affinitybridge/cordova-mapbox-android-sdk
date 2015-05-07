@@ -8,6 +8,8 @@ import android.util.Log;
 import android.view.DragEvent;
 import android.view.View;
 
+import com.cocoahero.android.geojson.Feature;
+import com.cocoahero.android.geojson.FeatureCollection;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.overlay.Icon;
 import com.mapbox.mapboxsdk.overlay.Marker;
@@ -20,6 +22,7 @@ import com.mapbox.mapboxsdk.views.util.Projection;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.LineSegment;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
@@ -43,6 +46,8 @@ class Builder {
 
     protected ArrayList<Marker> markers;
 
+    protected ArrayList<GeometryInterface> geometries;
+
     protected DraggableItemizedIconOverlay markerOverlay;
 
     Drawable vertexImage;
@@ -55,6 +60,7 @@ class Builder {
         this.mapView = mv;
         this.vertices = new ArrayList<Vertex>();
         this.markers = new ArrayList<Marker>();
+        this.geometries = new ArrayList<GeometryInterface>();
 
         this.nextMarkerOverlay = new SafeDrawOverlay() {
             /**
@@ -156,16 +162,19 @@ class Builder {
 
     public GeometryInterface createPoint() {
         GeometryInterface geometry = new PointGeometry(this.mapView, this);
+        this.geometries.add(geometry);
         return geometry;
     }
 
     public GeometryInterface createLineString() {
         GeometryInterface geometry = new LineGeometry(this.mapView, this);
+        this.geometries.add(geometry);
         return geometry;
     }
 
     public GeometryInterface createPolygon() {
         GeometryInterface geometry = new PolygonGeometry(this.mapView, this);
+        this.geometries.add(geometry);
         return geometry;
     }
 
@@ -383,7 +392,17 @@ class Builder {
     }
 
     public JSONObject toJSON() {
-        return new JSONObject();//this.activeShape.toJSON();
+        FeatureCollection collection = new FeatureCollection();
+        for (GeometryInterface geometry : this.geometries) {
+            collection.addFeature(geometry.toGeoJSON());
+        }
+        try {
+            return collection.toJSON();
+        }
+        catch (JSONException e) {
+            Log.e("Builder", e.getMessage());
+            return null;
+        }
     }
 
     private class MarkerDragEventListener implements View.OnDragListener {
@@ -466,27 +485,27 @@ class Builder {
         }
     }
 
-    public static interface GeometryInterface {
+    public interface GeometryInterface {
 
-        public void reset();
+        void reset();
 
-        public boolean addLatLng(LatLng latLng);
+        boolean addLatLng(LatLng latLng);
 
-        public void addGhostLatLng(LatLng latLng);
+        void addGhostLatLng(LatLng latLng);
 
-        public boolean insertLatLng(int position, LatLng latLng);
+        boolean insertLatLng(int position, LatLng latLng);
 
-        public void setLatLng(int position, LatLng latLng);
+        void setLatLng(int position, LatLng latLng);
 
-        public int indexOfLatLng(LatLng latLng);
+        int indexOfLatLng(LatLng latLng);
 
-        public void remove(int position);
+        void remove(int position);
 
-        public void remove(LatLng latLng);
+        void remove(LatLng latLng);
 
-        public JSONObject toJSON();
+        Feature toGeoJSON();
 
-        public int size();
+        int size();
 
     }
 }
