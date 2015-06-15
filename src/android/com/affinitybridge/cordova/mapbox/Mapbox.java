@@ -7,24 +7,49 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.net.Uri;
+import android.os.Environment;
 import android.util.Log;
 import android.app.Activity;
 import android.content.res.Resources;
 import android.content.Intent;
 
+import com.cocoahero.android.geojson.Feature;
+import com.cocoahero.android.geojson.FeatureCollection;
+import com.cocoahero.android.geojson.GeoJSON;
+import com.cocoahero.android.geojson.GeoJSONObject;
+import com.cocoahero.android.geojson.Geometry;
+import com.cocoahero.android.geojson.LineString;
+import com.cocoahero.android.geojson.MultiLineString;
+import com.cocoahero.android.geojson.MultiPoint;
+import com.cocoahero.android.geojson.MultiPolygon;
+import com.cocoahero.android.geojson.Point;
+import com.cocoahero.android.geojson.Polygon;
+import com.cocoahero.android.geojson.Position;
+import com.cocoahero.android.geojson.Ring;
 import com.mapbox.mapboxsdk.geometry.BoundingBox;
+import com.mapbox.mapboxsdk.geometry.LatLng;
+import com.mapbox.mapboxsdk.util.GeoUtils;
 import com.mapbox.mapboxsdk.views.MapView;
-import com.mapbox.mapboxsdk.tileprovider.tilesource.ITileLayer;
 import com.mapbox.mapboxsdk.tileprovider.tilesource.TileLayer;
 import com.mapbox.mapboxsdk.tileprovider.tilesource.MapboxTileLayer;
-import com.mapbox.mapboxsdk.tileprovider.tilesource.MBTilesLayer;
-import com.mapbox.mapboxsdk.tileprovider.tilesource.WebSourceTileLayer;
+import com.mapbox.mapboxsdk.views.util.TilesLoadedListener;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Mapbox extends CordovaPlugin {
 
   public static final String ACTION_CREATE_MAPBOX_MAP = "createMapboxTileLayerMap";
   public static final String ACTION_CREATE_MBTILES_MAP = "createMBTilesLayerMap";
   public static final String ACTION_MAP_EDITOR = "mapEditor";
+  public static final String ACTION_CREATE_STATIC_IMAGE = "createStaticImage";
 
   protected CallbackContext activeCallbackContext;
 
@@ -53,6 +78,13 @@ public class Mapbox extends CordovaPlugin {
         mapEditor(geojson);
         return true;
       }
+      else if (ACTION_CREATE_STATIC_IMAGE.equals(action)) {
+        JSONObject options = args.getJSONObject(0);
+        this.activeCallbackContext = callbackContext;
+        createStaticImage(options);
+        return true;
+      }
+
       callbackContext.error("Invalid action");
     }
     catch(Exception e) {
@@ -106,6 +138,126 @@ public class Mapbox extends CordovaPlugin {
     cordova.startActivityForResult(this, intent, 1);
   }
 
+  private void createStaticImage(JSONObject options) {
+    final Bitmap bm;
+    final Canvas canvas;
+    int width = 100, height = 100;
+
+    GeoJSONObject geojson;
+    ArrayList<LatLng> latlngs = new ArrayList<LatLng>();
+    BoundingBox focusArea;
+
+    try {
+      if (options.has("height")) {
+        height = options.getInt("height");
+      }
+
+      if (options.has("width")) {
+        width = options.getInt("width");
+      }
+
+      if (options.has("geojson")) {
+        geojson = GeoJSON.parse(options.getJSONObject("geojson"));
+        this.getLatLngs(geojson, latlngs);
+        if (latlngs.isEmpty()) {
+          Log.e("createStaticImage()", "Empty 'geojson' property in createStaticImage() options.");
+          return;
+        }
+        focusArea = GeoUtils.findBoundingBoxForGivenLocations(latlngs, 0.1);
+      } else {
+        Log.e("createStaticImage()", "Missing 'geojson' property in createStaticImage() options.");
+        return;
+      }
+
+      createStaticImage(width, height, focusArea);
+    }
+    catch (JSONException e) {
+      Log.e("createStaticImage()", e.getMessage());
+      this.activeCallbackContext.error(e.getMessage());
+      return;
+    }
+  }
+
+  protected void createStaticImage(int width, int height, BoundingBox focus) {
+    final Bitmap bm = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+    final Canvas canvas = new Canvas(bm);
+
+    Activity activity = cordova.getActivity();
+    Resources res = activity.getResources();
+    int accessTokenID = res.getIdentifier("mapboxAccessToken", "string", activity.getPackageName());
+    String accessToken = res.getString(accessTokenID);
+
+    // Mapbox tile layer.
+    final MapView mapView = new MapView(webView.getContext());
+    mapView.setAccessToken(accessToken);
+    mapView.zoomToBoundingBox(focus);
+    TileLayer mbTileLayer = new MapboxTileLayer("mapbox.streets");
+    mapView.setTileSource(mbTileLayer);
+
+    Log.d("TilesLoadedListener", "Calling mapView.draw() to trigger tile loading.");
+    mapView.draw(canvas);
+
+    mapView.setOnTilesLoadedListener(new TilesLoadedListener() {
+      @Override
+      public boolean onTilesLoaded() {
+        cordova.getActivity().runOnUiThread(new Runnable() {
+          public void run() {
+            Log.d("TilesLoadedListener", "onTilesLoaded()");
+            mapView.draw(canvas);
+            Uri uri = writeImage(bm);
+            activeCallbackContext.success(uri.toString());
+          }
+        });
+        return true;
+      }
+
+      @Override
+      public boolean onTilesLoadStarted() {
+        return false;
+      }
+    });
+  }
+
+  public Uri writeImage(Bitmap bitmap) {
+    String errorMessage;
+    int quality = 80;
+    Uri uri = Uri.fromFile(new File(getTempDirectoryPath(), System.currentTimeMillis() + ".jpg"));
+
+    try {
+      OutputStream os = this.cordova.getActivity().getContentResolver().openOutputStream(uri);
+      bitmap.compress(Bitmap.CompressFormat.JPEG, quality, os);
+      os.close();
+    } catch (FileNotFoundException e) {
+      errorMessage = e.getMessage();
+      Log.e("Mapbox", errorMessage);
+      this.activeCallbackContext.error(errorMessage);
+    } catch (IOException e) {
+      errorMessage = e.getMessage();
+      Log.e("Mapbox", errorMessage);
+      this.activeCallbackContext.error(errorMessage);
+    }
+
+    return uri;
+  }
+
+  private String getTempDirectoryPath() {
+    File cache = null;
+
+    // SD Card Mounted
+    if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+      cache = new File(Environment.getExternalStorageDirectory().getAbsolutePath() +
+              "/Android/data/" + cordova.getActivity().getPackageName() + "/cache/");
+    }
+    // Use internal storage
+    else {
+      cache = cordova.getActivity().getCacheDir();
+    }
+
+    // Create the cache directory if it doesn't exist
+    cache.mkdirs();
+    return cache.getAbsolutePath();
+  }
+
   public void onActivityResult(int requestCode, int resultCode, Intent data) {
     Log.d("MapboxPlugin", "onActivityResult() called.");
     if (requestCode == 1) {
@@ -132,6 +284,87 @@ public class Mapbox extends CordovaPlugin {
         Log.d("MapboxPlugin", "Activity returned RESULT_CENCELED.");
       }
     }
+  }
+
+  /**
+   * TODO: These getLatLngs() methods should exist under a 'utils' namespace.
+   *
+   * Fills latlngs collection with all latlngs contained within geojson.
+   *
+   * @param geojson
+   * @param latlngs
+   */
+  public void getLatLngs(GeoJSONObject geojson, ArrayList<LatLng> latlngs) {
+    Log.d("Mapbox.java", "getLatLngs(GeoJSONObject)");
+    Log.d("Mapbox.java", String.format("Type: %s.", geojson.getType()));
+
+    if (geojson instanceof FeatureCollection) {
+      FeatureCollection fc = (FeatureCollection) geojson;
+      for (Feature f : fc.getFeatures()) {
+        this.getLatLngs(f, latlngs);
+      }
+    }
+    else if (geojson instanceof Feature) {
+      Log.d("Builder", "instanceof Feature");
+      Feature feature = (Feature) geojson;
+      this.getLatLngs(feature.getGeometry(), latlngs);
+    }
+    else {
+      Log.w("Mapbox.java", "GeoJSONObject must be either instance of Feature or FeatureCollection.");
+    }
+  }
+
+  /**
+   * Fills latlngs collection with all latlngs contained within geom.
+   *
+   * @param geom
+   * @param latlngs
+   */
+  protected void getLatLngs(Geometry geom, ArrayList<LatLng> latlngs) {
+    if (geom instanceof MultiPolygon) {
+      for (Polygon poly : ((MultiPolygon) geom).getPolygons()) {
+        this.getLatLngs(poly, latlngs);
+      }
+    } else if (geom instanceof MultiLineString) {
+      for (LineString line : ((MultiLineString) geom).getLineStrings()) {
+        this.getLatLngs(line, latlngs);
+      }
+    } else if (geom instanceof MultiPoint) {
+      this.getLatLngs(((MultiPoint) geom).getPositions(), latlngs);
+    } else if (geom instanceof Polygon) {
+      for (Ring r : ((Polygon) geom).getRings()) {
+        this.getLatLngs(r.getPositions(), latlngs);
+      }
+    } else if (geom instanceof LineString) {
+      this.getLatLngs(((LineString) geom).getPositions(), latlngs);
+    } else if (geom instanceof Point) {
+      latlngs.add(this.getLatLng(((Point) geom).getPosition()));
+    }
+    else {
+      Log.w("Mapbox.java", String.format("Unknown geometry type: %s", geom.getType()));
+    }
+  }
+
+  /**
+   * Fills latlngs with all latlngs within positions.
+   *
+   * @param positions
+   * @param latlngs
+   */
+  protected void getLatLngs(List<Position> positions, ArrayList<LatLng> latlngs) {
+    for (Position point : positions) {
+      latlngs.add(this.getLatLng(point));
+    }
+  }
+
+  /**
+   * Converts a Position to a LatLng.
+   *
+   * @param position
+   * @return A new LatLng representation of the Position.
+   */
+  protected LatLng getLatLng(Position position) {
+    return new LatLng(position.getLatitude(), position.getLongitude());
   }
 
 }
