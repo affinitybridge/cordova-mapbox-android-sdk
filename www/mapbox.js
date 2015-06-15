@@ -17,9 +17,9 @@ module.exports = {
             callback(err || 'There was a problem.');
         }, "Mapbox", "mapEditor", [geojson]);
     },
-    staticMap: function staticMap(geojson, callback) {
+    staticMap: function staticMap(options, callback) {
         exec(callback, function (err) {
             callback(err || 'There was a problem.');
-        }, "Mapbox", "createStaticImage", [geojson]);
+        }, "Mapbox", "createStaticImage", [options]);
     }
 };

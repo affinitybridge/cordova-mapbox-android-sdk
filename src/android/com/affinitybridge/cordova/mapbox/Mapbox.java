@@ -163,7 +163,12 @@ public class Mapbox extends CordovaPlugin {
           Log.e("createStaticImage()", "Empty 'geojson' property in createStaticImage() options.");
           return;
         }
-        focusArea = GeoUtils.findBoundingBoxForGivenLocations(latlngs, 0.1);
+
+        focusArea = GeoUtils.findBoundingBoxForGivenLocations(latlngs, 2.5);
+        double west = focusArea.getLonWest(), north = focusArea.getLatNorth(), east = focusArea.getLonEast(), south = focusArea.getLatSouth();
+        String bbox = String.format("[[ [%f,%f], [%f,%f], [%f,%f], [%f,%f], [%f,%f] ]]", west, north, east, north, east, south, west, south, west, north);
+        Log.d("createStaticImage()", String.format("LatLngs: %s, focusArea: %s, BBOX: %s", latlngs.toString(), focusArea.toString(), bbox));
+
       } else {
         Log.e("createStaticImage()", "Missing 'geojson' property in createStaticImage() options.");
         return;
@@ -178,7 +183,7 @@ public class Mapbox extends CordovaPlugin {
     }
   }
 
-  protected void createStaticImage(int width, int height, BoundingBox focus) {
+  protected void createStaticImage(final int width, final int height, final BoundingBox focusArea) {
     final Bitmap bm = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
     final Canvas canvas = new Canvas(bm);
 
@@ -187,12 +192,12 @@ public class Mapbox extends CordovaPlugin {
     int accessTokenID = res.getIdentifier("mapboxAccessToken", "string", activity.getPackageName());
     String accessToken = res.getString(accessTokenID);
 
-    // Mapbox tile layer.
     final MapView mapView = new MapView(webView.getContext());
     mapView.setAccessToken(accessToken);
-    mapView.zoomToBoundingBox(focus);
-    TileLayer mbTileLayer = new MapboxTileLayer("mapbox.streets");
+    TileLayer mbTileLayer = new MapboxTileLayer("affinitybridge.map-yxek1zgp");
     mapView.setTileSource(mbTileLayer);
+    mapView.setCenter(focusArea.getCenter());
+    mapView.zoomToBoundingBox(focusArea, true, false, true);
 
     Log.d("TilesLoadedListener", "Calling mapView.draw() to trigger tile loading.");
     mapView.draw(canvas);
@@ -202,7 +207,7 @@ public class Mapbox extends CordovaPlugin {
       public boolean onTilesLoaded() {
         cordova.getActivity().runOnUiThread(new Runnable() {
           public void run() {
-            Log.d("TilesLoadedListener", "onTilesLoaded()");
+            Log.d("TilesLoadedListener", String.format("onTilesLoaded() mapView.getCenter() %s", mapView.getCenter().toString()));
             mapView.draw(canvas);
             Uri uri = writeImage(bm);
             activeCallbackContext.success(uri.toString());
