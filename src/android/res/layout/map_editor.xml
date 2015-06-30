@@ -10,7 +10,6 @@
         android:id="@+id/mapeditor"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
-        mapbox:mapid="mapbox.streets"
         mapbox:accessToken="@string/mapboxAccessToken" />
 
     <com.getbase.floatingactionbutton.FloatingActionButton

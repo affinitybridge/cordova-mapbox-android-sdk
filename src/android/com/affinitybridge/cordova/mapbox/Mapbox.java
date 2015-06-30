@@ -3,15 +3,19 @@ package com.affinitybridge.cordova.mapbox;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 
+import org.apache.cordova.CordovaResourceApi;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.net.Uri;
 import android.util.Log;
 import android.app.Activity;
 import android.content.res.Resources;
 import android.content.Intent;
 
+import com.cocoahero.android.geojson.GeoJSON;
+import com.cocoahero.android.geojson.GeoJSONObject;
 import com.mapbox.mapboxsdk.geometry.BoundingBox;
 import com.mapbox.mapboxsdk.views.MapView;
 import com.mapbox.mapboxsdk.tileprovider.tilesource.ITileLayer;
@@ -20,11 +24,17 @@ import com.mapbox.mapboxsdk.tileprovider.tilesource.MapboxTileLayer;
 import com.mapbox.mapboxsdk.tileprovider.tilesource.MBTilesLayer;
 import com.mapbox.mapboxsdk.tileprovider.tilesource.WebSourceTileLayer;
 
+import java.io.File;
+
 public class Mapbox extends CordovaPlugin {
 
   public static final String ACTION_CREATE_MAPBOX_MAP = "createMapboxTileLayerMap";
   public static final String ACTION_CREATE_MBTILES_MAP = "createMBTilesLayerMap";
   public static final String ACTION_MAP_EDITOR = "mapEditor";
+
+  public static final String EXTRA_GEOJSON = "extraGeoJSON";
+  public static final String EXTRA_MBTILES = "extraMbtiles";
+  public static final String EXTRA_MAPID = "extraMapId";
 
   protected CallbackContext activeCallbackContext;
 
@@ -48,9 +58,9 @@ public class Mapbox extends CordovaPlugin {
         }
       }
       else if (ACTION_MAP_EDITOR.equals(action)) {
-        String geojson = args.getString(0);
+        JSONObject options = args.getJSONObject(0);
         this.activeCallbackContext = callbackContext;
-        mapEditor(geojson);
+        mapEditor(options);
         return true;
       }
       callbackContext.error("Invalid action");
@@ -99,10 +109,41 @@ public class Mapbox extends CordovaPlugin {
     cordova.getActivity().startActivity(intent);
   }
 
-  private void mapEditor(String geojson) {
-    /* this.cordova.setActivityResultCallback(this); */
+  private void mapEditor(JSONObject options) {
     Intent intent = new Intent(cordova.getActivity(), MapEditorActivity.class);
-    intent.putExtra(Intent.EXTRA_TEXT, geojson);
+    String errorMessage;
+
+    try {
+      if (options.has("geojson")) {
+        GeoJSONObject geojson = GeoJSON.parse(options.getJSONObject("geojson"));
+        intent.putExtra(Mapbox.EXTRA_GEOJSON, geojson);
+      }
+
+      if (options.has("mbtiles")) {
+
+        CordovaResourceApi resourceApi = webView.getResourceApi();
+        String mbtilesPath = options.getString("mbtiles");
+        // Accept a path or a URI for the source.
+        Uri tmpSrc = Uri.parse(mbtilesPath);
+        final Uri mbtilesUri = resourceApi.remapUri(
+                tmpSrc.getScheme() != null ? tmpSrc : Uri.fromFile(new File(mbtilesPath)));
+        intent.putExtra(Mapbox.EXTRA_MBTILES, mbtilesUri);
+      } else if (options.has("mapId")) {
+        intent.putExtra(Mapbox.EXTRA_MAPID, options.getString("mapId"));
+      } else {
+        errorMessage =  "A basemap must be specified with a 'mbtiles' or 'mapId' property in mapEditor options.";
+        Log.e("Mapbox", errorMessage);
+        this.activeCallbackContext.error(errorMessage);
+        return;
+      }
+    }
+    catch (JSONException e) {
+       Log.e("mapEditor()", e.getMessage());
+       this.activeCallbackContext.error(e.getMessage());
+       return;
+    }
+
+    /* this.cordova.setActivityResultCallback(this); */
     cordova.startActivityForResult(this, intent, 1);
   }
 
