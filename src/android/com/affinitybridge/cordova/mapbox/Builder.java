@@ -32,480 +32,536 @@ import java.util.ArrayList;
  */
 class Builder {
 
-    protected MapView mapView;
+  protected MapView mapView;
 
-    protected GeometryInterface activeShape;
+  protected GeometryInterface activeShape;
 
-    protected int selected = -1;
+  protected int maxPolygons = 0;
 
-    protected Vertex lastAdded;
+  protected int maxLines = 0;
 
-    protected Overlay nextMarkerOverlay;
+  protected int maxPoints = 0;
 
-    protected ArrayList<Vertex> vertices;
+  protected int numPolygons = 0;
 
-    protected ArrayList<Marker> markers;
+  protected int numLines = 0;
 
-    protected ArrayList<GeometryInterface> geometries;
+  protected int numPoints = 0;
 
-    protected DraggableItemizedIconOverlay markerOverlay;
+  protected int selected = -1;
 
-    Drawable vertexImage;
+  protected Vertex lastAdded;
 
-    Drawable vertexMiddleImage;
+  protected Overlay nextMarkerOverlay;
 
-    Drawable vertexSelectedImage;
+  protected ArrayList<Vertex> vertices;
 
-    public Builder(MapView mv) {
-        this.mapView = mv;
-        this.vertices = new ArrayList<Vertex>();
-        this.markers = new ArrayList<Marker>();
-        this.geometries = new ArrayList<GeometryInterface>();
+  protected ArrayList<Marker> markers;
 
-        this.nextMarkerOverlay = new SafeDrawOverlay() {
-            /**
-             * Most of this is lifted from com.mapbox.mapboxsdk.overlay.ItemizedOverlay's
-             * onDrawItem() method.
-             *
-             * @param iSafeCanvas
-             * @param mapView
-             * @param b
-             */
-            @Override
-            protected void drawSafe(ISafeCanvas iSafeCanvas, MapView mapView, boolean b) {
-                iSafeCanvas.save();
+  protected ArrayList<GeometryInterface> geometries;
 
-                Projection p = mapView.getProjection();
-                int centerX = p.getCenterX(), centerY = p.getCenterY();
+  protected DraggableItemizedIconOverlay markerOverlay;
 
-                // Calculating marker center to use for offset.
-                PointF anchor = new PointF(0.5f, 0.5f);
-                int markerWidth = vertexMiddleImage.getIntrinsicWidth(), markerHeight = vertexMiddleImage.getIntrinsicHeight();
-                Point offset = new Point((int) (-anchor.x * markerWidth), (int) (-anchor.y * markerHeight));
+  Drawable vertexImage;
 
-                // Handling canvas scale to ensure marker is drawn at fixed size.
-                final float mapScale = 1 / mapView.getScale();
-                iSafeCanvas.scale(mapScale, mapScale, centerX, centerY);
+  Drawable vertexMiddleImage;
 
-                // Drawable's don't have bounding dimensions by default.
-                vertexMiddleImage.setBounds(0, 0, markerWidth, markerHeight);
-                Overlay.drawAt(iSafeCanvas.getSafeCanvas(), vertexMiddleImage, new Point(centerX, centerY), offset, false, 0);
+  Drawable vertexSelectedImage;
 
-                iSafeCanvas.restore();
+  public Builder(MapView mv) {
+    this.mapView = mv;
+    this.vertices = new ArrayList<Vertex>();
+    this.markers = new ArrayList<Marker>();
+    this.geometries = new ArrayList<GeometryInterface>();
 
-                activeShape.reset();
-                activeShape.addGhostLatLng(mapView.getCenter());
-            }
-        };
+    this.nextMarkerOverlay = new SafeDrawOverlay() {
+      /**
+       * Most of this is lifted from com.mapbox.mapboxsdk.overlay.ItemizedOverlay's
+       * onDrawItem() method.
+       *
+       * @param iSafeCanvas
+       * @param mapView
+       * @param b
+       */
+      @Override
+      protected void drawSafe(ISafeCanvas iSafeCanvas, MapView mapView, boolean b) {
+        iSafeCanvas.save();
 
-        this.markerOverlay = new DraggableItemizedIconOverlay(this.mapView.getContext(), new ArrayList<Marker>(), new DraggableItemizedIconOverlay.OnItemDraggableGestureListener<Marker>() {
-            public boolean onItemSingleTapUp(final int iconOverlayMarkerIndex, final Marker item) {
-                int index = markers.indexOf(item);
-                Log.d("Builder", String.format("onSingleTapUp() index: %d, selected: %d.", markers.indexOf(item), selected));
+        Projection p = mapView.getProjection();
+        int centerX = p.getCenterX(), centerY = p.getCenterY();
 
-                if (index == selected) {
-                    return false;
-                }
+        // Calculating marker center to use for offset.
+        PointF anchor = new PointF(0.5f, 0.5f);
+        int markerWidth = vertexMiddleImage.getIntrinsicWidth(), markerHeight = vertexMiddleImage.getIntrinsicHeight();
+        Point offset = new Point((int) (-anchor.x * markerWidth), (int) (-anchor.y * markerHeight));
 
-                Vertex vertex = vertices.get(index);
+        // Handling canvas scale to ensure marker is drawn at fixed size.
+        final float mapScale = 1 / mapView.getScale();
+        iSafeCanvas.scale(mapScale, mapScale, centerX, centerY);
 
-                select(index, vertex);
-                return true;
-            }
+        // Drawable's don't have bounding dimensions by default.
+        vertexMiddleImage.setBounds(0, 0, markerWidth, markerHeight);
+        Overlay.drawAt(iSafeCanvas.getSafeCanvas(), vertexMiddleImage, new Point(centerX, centerY), offset, false, 0);
 
-            public boolean onItemLongPress(final int iconOverlayMarkerIndex, final Marker item) {
-                int index = markers.indexOf(item);
-                Log.d("Builder", String.format("onItemLongPress() index: %d, selected: %d.", index, selected));
+        iSafeCanvas.restore();
 
-                if (vertices.get(index).isGhost()) {
-                    // If middle marker; ignore.
-                    return false;
-                }
+        activeShape.reset();
+        activeShape.addGhostLatLng(mapView.getCenter());
+      }
+    };
 
-                // If real marker; remove it.
-                removePoint(index);
-                return true;
-            }
+    this.markerOverlay = new DraggableItemizedIconOverlay(this.mapView.getContext(), new ArrayList<Marker>(), new DraggableItemizedIconOverlay.OnItemDraggableGestureListener<Marker>() {
+      public boolean onItemSingleTapUp(final int iconOverlayMarkerIndex, final Marker item) {
+        int index = markers.indexOf(item);
+        Log.d("Builder", String.format("onSingleTapUp() index: %d, selected: %d.", markers.indexOf(item), selected));
 
-            public boolean onItemDown(final int iconOverlayMarkerIndex, final Marker item) {
-                Log.d("Builder", String.format("onItemDown() index: %d, selected: %d.", markers.indexOf(item), selected));
+        if (index == selected) {
+          return false;
+        }
 
-                if (markers.indexOf(item) != selected) {
-                    return false;
-                }
+        Vertex vertex = vertices.get(index);
 
-                mapView.startDrag(null, new MarkerShadowBuilder(mapView, item), null, 0);
-                return true;
-            }
-        });
+        select(index, vertex);
+        return true;
+      }
 
-        mapView.setOnDragListener(new MarkerDragEventListener());
-        this.mapView.addItemizedOverlay(this.markerOverlay);
+      public boolean onItemLongPress(final int iconOverlayMarkerIndex, final Marker item) {
+        int index = markers.indexOf(item);
+        Log.d("Builder", String.format("onItemLongPress() index: %d, selected: %d.", index, selected));
+
+        if (vertices.get(index).isGhost()) {
+          // If middle marker; ignore.
+          return false;
+        }
+
+        // If real marker; remove it.
+        removePoint(index);
+        return true;
+      }
+
+      public boolean onItemDown(final int iconOverlayMarkerIndex, final Marker item) {
+        Log.d("Builder", String.format("onItemDown() index: %d, selected: %d.", markers.indexOf(item), selected));
+
+        if (markers.indexOf(item) != selected) {
+          return false;
+        }
+
+        mapView.startDrag(null, new MarkerShadowBuilder(mapView, item), null, 0);
+        return true;
+      }
+    });
+
+    mapView.setOnDragListener(new MarkerDragEventListener());
+    this.mapView.addItemizedOverlay(this.markerOverlay);
+  }
+
+
+  public void setVertexImage(Drawable img) {
+    this.vertexImage = img;
+  }
+
+  public void setVertexSelectedImage(Drawable img) {
+    this.vertexSelectedImage = img;
+  }
+
+  public void setVertexMiddleImage(Drawable img) {
+    this.vertexMiddleImage = img;
+  }
+
+  public GeometryInterface getActiveShape() {
+    return this.activeShape;
+  }
+
+  public GeometryInterface createPoint() {
+    GeometryInterface geometry = new PointGeometry(this.mapView, this);
+    this.geometries.add(geometry);
+    return geometry;
+  }
+
+  public GeometryInterface createLineString() {
+    GeometryInterface geometry = new LineGeometry(this.mapView, this);
+    this.geometries.add(geometry);
+    return geometry;
+  }
+
+  public GeometryInterface createPolygon() {
+    GeometryInterface geometry = new PolygonGeometry(this.mapView, this);
+    this.geometries.add(geometry);
+    return geometry;
+  }
+
+  public boolean startFeature(GeometryInterface geometry) {
+    if (geometry instanceof PointGeometry && maxPoints > 0 && numPoints >= maxPoints) {
+      return false;
+    } else if (geometry instanceof LineGeometry && maxLines > 0 && numLines >= maxLines) {
+      return false;
+    } else if (geometry instanceof PolygonGeometry && maxPolygons > 0 && numPolygons >= maxPolygons) {
+      return false;
     }
 
+    mapView.addOverlay(this.nextMarkerOverlay);
+    this.activeShape = geometry;
 
-    public void setVertexImage(Drawable img) {
-        this.vertexImage = img;
+    return true;
+  }
+
+  public void stopFeature() {
+    if (this.activeShape instanceof PointGeometry) {
+      this.numPoints++;
+    } else if (this.activeShape instanceof LineGeometry) {
+      this.numLines++;
+    } else if (this.activeShape instanceof PolygonGeometry) {
+      this.numPolygons++;
     }
 
-    public void setVertexSelectedImage(Drawable img) {
-        this.vertexSelectedImage = img;
+    mapView.removeOverlay(this.nextMarkerOverlay);
+    this.activeShape.reset();
+    this.activeShape = null;
+  }
+
+  protected void select(int index) {
+    Vertex vertex = this.vertices.get(index);
+    this.select(index, vertex);
+  }
+
+  protected void select(int index, Vertex vertex) {
+    this.deselect();
+    this.selected = index;
+
+    GeometryInterface geometry = vertex.getOwner();
+
+    Log.d("Builder", String.format("select() vertex.isGhost() ? %b.", vertex.isGhost()));
+    // Promote middle vertex to real vertex.
+
+    if (vertex.isGhost()) { // && geometry.insertLatLng(insertPos, vertex.getPoint())) {
+      int insertPos = geometry.indexOfLatLng(vertex.getNext().getPoint());
+      geometry.insertLatLng(insertPos, vertex.getPoint());
+      vertex.setGhost(false);
+
+      updatePrevNext(vertex.getPrev(), vertex);
+      updatePrevNext(vertex, vertex.getNext());
+
+      createMiddleMarker(vertex.getPrev(), vertex);
+      createMiddleMarker(vertex, vertex.getNext());
+
+      geometry.reset();
     }
 
-    public void setVertexMiddleImage(Drawable img) {
-        this.vertexMiddleImage = img;
+    if (this.vertexSelectedImage != null) {
+      vertex.getMarker().setHotspot(Marker.HotspotPlace.CENTER);
+      vertex.getMarker().setMarker(this.vertexSelectedImage);
+    } else {
+      vertex.getMarker().setIcon(new Icon(this.mapView.getContext(), Icon.Size.SMALL, "", "FF0000"));
     }
 
-    public GeometryInterface getActiveShape() {
-        return this.activeShape;
+    Log.d("Builder", String.format("select() this.selected: %d", this.selected));
+  }
+
+  protected void deselect() {
+    if (this.selected < 0) {
+      return;
+    }
+    Vertex vertex = this.vertices.get(this.selected);
+
+    if (this.vertexImage != null) {
+      vertex.getMarker().setHotspot(Marker.HotspotPlace.CENTER);
+      vertex.getMarker().setMarker(this.vertexImage);
+    } else {
+      vertex.getMarker().setIcon(new Icon(this.mapView.getContext(), Icon.Size.SMALL, "", "0000FF"));
     }
 
-    public GeometryInterface createPoint() {
-        GeometryInterface geometry = new PointGeometry(this.mapView, this);
-        this.geometries.add(geometry);
-        return geometry;
+    this.selected = -1;
+  }
+
+  protected void initMarkers(GeometryInterface geometry, ArrayList<LatLng> latLngs) {
+    ArrayList<Vertex> newVertices = new ArrayList<Vertex>();
+
+    if (this.startFeature(geometry)) {
+      // Initialize markers for all vertices.
+      for (LatLng latLng : latLngs) {
+        if (geometry.addLatLng(latLng)) {
+          Marker marker = this.createMarker(latLng, this.vertexImage);
+          Vertex vertex = new Vertex(geometry, marker);
+          newVertices.add(vertex);
+        }
+      }
+
+      // Add all new vertices to main collection.
+      this.vertices.addAll(newVertices);
+
+      // Initialize middle markers.
+      Vertex left, right;
+      int length = latLngs.size();
+      for (int i = 0, j = length - 1; i < length; j = i++) {
+        left = newVertices.get(j);
+        right = newVertices.get(i);
+        this.createMiddleMarker(left, right);
+        this.updatePrevNext(left, right);
+      }
+      this.stopFeature();
+    }
+  }
+
+  protected void createMiddleMarker(Vertex left, Vertex right) {
+    if (left.equals(right) || left == null || right == null) {
+      return;
     }
 
-    public GeometryInterface createLineString() {
-        GeometryInterface geometry = new LineGeometry(this.mapView, this);
-        this.geometries.add(geometry);
-        return geometry;
+    LatLng middle = this.getMiddleLatLng(left.getPoint(), right.getPoint());
+    Marker marker = this.createMarker(middle, this.vertexMiddleImage);
+
+    Vertex vertex = new Vertex(left.getOwner(), marker);
+    vertex.setGhost(true);
+
+    this.vertices.add(vertex);
+
+    left.setMiddleRight(vertex);
+    right.setMiddleLeft(vertex);
+  }
+
+  protected void updatePrevNext(Vertex left, Vertex right) {
+    if (left != null) {
+      left.setNext(right);
+    }
+    if (right != null) {
+      right.setPrev(left);
+    }
+  }
+
+  protected LatLng getMiddleLatLng(LatLng left, LatLng right) {
+    LineSegment seg = new LineSegment(left.getLongitude(), left.getLatitude(), right.getLongitude(), right.getLatitude());
+    Coordinate mid = seg.midPoint();
+    return new LatLng(mid.y, mid.x);
+  }
+
+  public void addLatLng() {
+    if (this.activeShape != null) {
+      this.addLatLng(this.activeShape, mapView.getCenter());
+    }
+  }
+
+  final public void addLatLng(GeometryInterface geometry, LatLng position) {
+    if (geometry.addLatLng(position)) {
+      Marker marker = this.createMarker(position, this.vertexImage);
+      Vertex vertex = new Vertex(geometry, marker);
+      this.vertices.add(vertex);
+
+      if (geometry.size() > 1 && this.lastAdded != null) {
+        this.createMiddleMarker(this.lastAdded, vertex);
+        this.updatePrevNext(this.lastAdded, vertex);
+      }
+
+      this.lastAdded = vertex;
+    }
+  }
+
+  final public Marker createMarker(LatLng latLng, Drawable image) {
+    Marker marker = new Marker("", "", latLng);
+
+    if (image != null) {
+      marker.setHotspot(Marker.HotspotPlace.CENTER);
+      marker.setAnchor(new PointF(0.5f, 0.5f));
+      marker.setMarker(image);
+    } else {
+      marker.setIcon(new Icon(this.mapView.getContext(), Icon.Size.SMALL, "", "0000FF"));
     }
 
-    public GeometryInterface createPolygon() {
-        GeometryInterface geometry = new PolygonGeometry(this.mapView, this);
-        this.geometries.add(geometry);
-        return geometry;
+    this.markers.add(marker);
+
+    this.markerOverlay.addItem(marker);
+    marker.addTo(mapView);
+
+    this.mapView.invalidate();
+
+    return marker;
+  }
+
+  final public void removePoint() {
+    int index = this.selected >= 0 ? this.selected : -1;
+
+    this.removePoint(index);
+  }
+
+  final public void removePoint(int index) {
+    if (index < 0) {
+      return;
     }
 
-    public void startFeature(GeometryInterface geometry) {
-        mapView.addOverlay(this.nextMarkerOverlay);
-        this.activeShape = geometry;
+    // Calling this.deselect() is necessary as removing the vertex and marker will shift
+    // subsequent indices in this.vertices & this.markers.
+    this.deselect();
+
+    Vertex vertex = this.vertices.remove(index);
+    Marker marker = this.markers.remove(index);
+
+    updatePrevNext(vertex.getPrev(), vertex.getNext());
+    createMiddleMarker(vertex.getPrev(), vertex.getNext());
+
+    Vertex middleLeft = vertex.getMiddleLeft();
+    Vertex middleRight = vertex.getMiddleRight();
+
+    if (middleLeft != null) {
+      this.markerOverlay.removeItem(middleLeft.getMarker());
+    }
+    if (middleRight != null) {
+      this.markerOverlay.removeItem(middleRight.getMarker());
     }
 
-    public void stopFeature() {
-        mapView.removeOverlay(this.nextMarkerOverlay);
-        this.activeShape.reset();
-        this.activeShape = null;
+    this.markerOverlay.removeItem(marker);
+
+    GeometryInterface geometry = vertex.getOwner();
+    geometry.remove(marker.getPoint());
+
+    if (this.lastAdded == vertex) {
+      this.lastAdded = vertex.getPrev();
     }
 
-    protected void select(int index) {
-        Vertex vertex = this.vertices.get(index);
-        this.select(index, vertex);
+    marker.getDrawable().invalidateSelf();
+    mapView.invalidate();
+  }
+
+  public void setLimits(JSONObject limits) {
+    try {
+      if (limits.has("point")) {
+        this.maxPoints = limits.getInt("point");
+      }
+      if (limits.has("line")) {
+        this.maxLines = limits.getInt("line");
+      }
+      if (limits.has("polygon")) {
+        this.maxPolygons = limits.getInt("polygon");
+      }
+    } catch (JSONException e) {
+      Log.e("Builder", e.getMessage());
+    }
+  }
+
+  public JSONObject toJSON() {
+    FeatureCollection collection = new FeatureCollection();
+    for (GeometryInterface geometry : this.geometries) {
+      collection.addFeature(geometry.toGeoJSON());
+    }
+    try {
+      return collection.toJSON();
+    } catch (JSONException e) {
+      Log.e("Builder", e.getMessage());
+      return null;
+    }
+  }
+
+  public int getMaxPolygons() {
+    return maxPolygons;
+  }
+
+  public int getMaxLines() {
+    return maxLines;
+  }
+
+  public int getMaxPoints() {
+    return maxPoints;
+  }
+
+  private class MarkerDragEventListener implements View.OnDragListener {
+    protected Vertex activeVertex;
+    protected int activeIndex;
+
+    private boolean dragStart(View v, DragEvent event) {
+      Vertex vertex = vertices.get(selected);
+
+      GeometryInterface geometry = vertex.getOwner();
+      this.activeVertex = vertex;
+      this.activeIndex = geometry.indexOfLatLng(vertex.getPoint());
+
+      markerOverlay.removeItem(vertex.getMarker());
+      Log.d("Builder", String.format("dragStart() selected: %d, activeIndex: %d, size: %d", selected, activeIndex, geometry.size()));
+
+      return true;
     }
 
-    protected void select(int index, Vertex vertex) {
-        this.deselect();
-        this.selected = index;
+    private boolean dragLocation(View v, DragEvent event) {
+      Projection p = mapView.getProjection();
+      LatLng latLng = (LatLng) p.fromPixels(event.getX(), event.getY());
 
-        GeometryInterface geometry = vertex.getOwner();
+      this.activeVertex.getOwner().setLatLng(this.activeIndex, latLng);
+      // Let implementing classes perform reset action.
+      this.activeVertex.getOwner().reset();
 
-        Log.d("Builder", String.format("select() vertex.isGhost() ? %b.", vertex.isGhost()));
-        // Promote middle vertex to real vertex.
+      Vertex vertex = vertices.get(selected);
+      Vertex prev = vertex.getPrev();
+      Vertex next = vertex.getNext();
 
-        if (vertex.isGhost()) { // && geometry.insertLatLng(insertPos, vertex.getPoint())) {
-            int insertPos = geometry.indexOfLatLng(vertex.getNext().getPoint());
-            geometry.insertLatLng(insertPos, vertex.getPoint());
-            vertex.setGhost(false);
+      if (prev != null && !prev.equals(vertex)) {
+        vertex.getMiddleLeft().setPoint(getMiddleLatLng(prev.getPoint(), latLng));
+      }
 
-            updatePrevNext(vertex.getPrev(), vertex);
-            updatePrevNext(vertex, vertex.getNext());
+      if (next != null && !next.equals(vertex)) {
+        vertex.getMiddleRight().setPoint(getMiddleLatLng(latLng, next.getPoint()));
+      }
 
-            createMiddleMarker(vertex.getPrev(), vertex);
-            createMiddleMarker(vertex, vertex.getNext());
-
-            geometry.reset();
-        }
-
-        if (this.vertexSelectedImage != null) {
-            vertex.getMarker().setHotspot(Marker.HotspotPlace.CENTER);
-            vertex.getMarker().setMarker(this.vertexSelectedImage);
-        }
-        else {
-            vertex.getMarker().setIcon(new Icon(this.mapView.getContext(), Icon.Size.SMALL, "", "FF0000"));
-        }
-
-        Log.d("Builder", String.format("select() this.selected: %d", this.selected));
+      // Invalidating the view causes a redraw.
+      v.invalidate();
+      return true;
     }
 
-    protected void deselect() {
-        if (this.selected < 0) {
-            return;
-        }
-        Vertex vertex = this.vertices.get(this.selected);
+    private boolean dragDrop(View view, DragEvent event) {
+      Projection p = mapView.getProjection();
+      Vertex v = vertices.get(selected);
 
-        if (this.vertexImage != null) {
-            vertex.getMarker().setHotspot(Marker.HotspotPlace.CENTER);
-            vertex.getMarker().setMarker(this.vertexImage);
-        }
-        else {
-            vertex.getMarker().setIcon(new Icon(this.mapView.getContext(), Icon.Size.SMALL, "", "0000FF"));
-        }
+      LatLng latLng = (LatLng) p.fromPixels(event.getX(), event.getY());
+      v.getOwner().setLatLng(this.activeIndex, latLng);
 
-        this.selected = -1;
+      v.setPoint(latLng);
+      markerOverlay.addItem(v.getMarker());
+      v.getMarker().addTo(mapView);
+
+      return true;
     }
 
-    protected void initMarkers(GeometryInterface geometry, ArrayList<LatLng> latLngs) {
-        ArrayList<Vertex> newVertices = new ArrayList<Vertex>();
+    public boolean onDrag(View v, DragEvent event) {
+      final int action = event.getAction();
 
-        // Initialize markers for all vertices.
-        for (LatLng latLng : latLngs) {
-            Log.d("Builder", String.format("LatLng: (%f, %f).", latLng.getLatitude(), latLng.getLongitude()));
-            if (geometry.addLatLng(latLng)) {
-                Marker marker = this.createMarker(latLng, this.vertexImage);
-                Vertex vertex = new Vertex(geometry, marker);
-                newVertices.add(vertex);
-            }
-        }
-
-        // Add all new vertices to main collection.
-        this.vertices.addAll(newVertices);
-
-        // Initialize middle markers.
-        Vertex left, right;
-        int length = latLngs.size();
-        for (int i = 0, j = length - 1; i < length; j = i++) {
-            left = newVertices.get(j);
-            right = newVertices.get(i);
-            this.createMiddleMarker(left, right);
-            this.updatePrevNext(left, right);
-        }
+      switch (action) {
+        case DragEvent.ACTION_DRAG_STARTED:
+          return dragStart(v, event);
+        case DragEvent.ACTION_DRAG_ENTERED:
+          return true;
+        case DragEvent.ACTION_DRAG_LOCATION:
+          return this.dragLocation(v, event);
+        case DragEvent.ACTION_DRAG_EXITED:
+          return true;
+        case DragEvent.ACTION_DROP:
+          return this.dragDrop(v, event);
+        case DragEvent.ACTION_DRAG_ENDED:
+          return true;
+        default:
+          Log.e("MarkerDragEventListener", "Unknown action type received by OnDragListener.");
+          break;
+      }
+      return false;
     }
+  }
 
-    protected void createMiddleMarker(Vertex left, Vertex right) {
-        if (left == null || right == null) {
-            return;
-        }
+  public interface GeometryInterface {
 
-        LatLng middle = this.getMiddleLatLng(left.getPoint(), right.getPoint());
-        Marker marker = this.createMarker(middle, this.vertexMiddleImage);
+    void reset();
 
-        Vertex vertex = new Vertex(left.getOwner(), marker);
-        vertex.setGhost(true);
+    boolean addLatLng(LatLng latLng);
 
-        this.vertices.add(vertex);
+    void addGhostLatLng(LatLng latLng);
 
-        left.setMiddleRight(vertex);
-        right.setMiddleLeft(vertex);
-    }
+    boolean insertLatLng(int position, LatLng latLng);
 
-    protected void updatePrevNext(Vertex left, Vertex right) {
-        if (left != null) {
-            left.setNext(right);
-        }
-        if (right != null) {
-            right.setPrev(left);
-        }
-    }
+    void setLatLng(int position, LatLng latLng);
 
-    protected LatLng getMiddleLatLng(LatLng left, LatLng right) {
-        LineSegment seg = new LineSegment(left.getLongitude(), left.getLatitude(), right.getLongitude(), right.getLatitude());
-        Coordinate mid = seg.midPoint();
-        return new LatLng(mid.y, mid.x);
-    }
+    int indexOfLatLng(LatLng latLng);
 
-    public void addLatLng() {
-        if (this.activeShape != null) {
-            this.addLatLng(this.activeShape, mapView.getCenter());
-        }
-    }
+    void remove(int position);
 
-    final public void addLatLng(GeometryInterface geometry, LatLng position) {
-        if (geometry.addLatLng(position)) {
-            Marker marker = this.createMarker(position, this.vertexImage);
-            Vertex vertex = new Vertex(geometry, marker);
-            this.vertices.add(vertex);
+    void remove(LatLng latLng);
 
-            if (geometry.size() > 1 && this.lastAdded != null) {
-                this.createMiddleMarker(this.lastAdded, vertex);
-                this.updatePrevNext(this.lastAdded, vertex);
-            }
+    Feature toGeoJSON();
 
-            this.lastAdded = vertex;
-        }
-    }
+    int size();
 
-    final public Marker createMarker(LatLng latLng, Drawable image) {
-        Marker marker = new Marker("", "", latLng);
-
-        if (image != null) {
-            marker.setHotspot(Marker.HotspotPlace.CENTER);
-            marker.setAnchor(new PointF(0.5f, 0.5f));
-            marker.setMarker(image);
-        }
-        else {
-            marker.setIcon(new Icon(this.mapView.getContext(), Icon.Size.SMALL, "", "0000FF"));
-        }
-
-        this.markers.add(marker);
-
-        this.markerOverlay.addItem(marker);
-        marker.addTo(mapView);
-
-        this.mapView.invalidate();
-
-        return marker;
-    }
-
-    final public void removePoint() {
-        int index = this.selected >= 0 ? this.selected : - 1;
-
-        this.removePoint(index);
-    }
-
-    final public void removePoint(int index) {
-        if (index < 0) {
-            return;
-        }
-
-        // Calling this.deselect() is necessary as removing the vertex and marker will shift
-        // subsequent indices in this.vertices & this.markers.
-        this.deselect();
-
-        Vertex vertex = this.vertices.remove(index);
-        Marker marker = this.markers.remove(index);
-
-        updatePrevNext(vertex.getPrev(), vertex.getNext());
-        createMiddleMarker(vertex.getPrev(), vertex.getNext());
-
-        Vertex middleLeft = vertex.getMiddleLeft();
-        Vertex middleRight = vertex.getMiddleRight();
-
-        if (middleLeft != null) {
-            this.markerOverlay.removeItem(middleLeft.getMarker());
-        }
-        if (middleRight != null) {
-            this.markerOverlay.removeItem(middleRight.getMarker());
-        }
-
-        this.markerOverlay.removeItem(marker);
-
-        GeometryInterface geometry = vertex.getOwner();
-        geometry.remove(marker.getPoint());
-
-        if (this.lastAdded == vertex) {
-            this.lastAdded = vertex.getPrev();
-        }
-
-        marker.getDrawable().invalidateSelf();
-        mapView.invalidate();
-    }
-
-    public JSONObject toJSON() {
-        FeatureCollection collection = new FeatureCollection();
-        for (GeometryInterface geometry : this.geometries) {
-            collection.addFeature(geometry.toGeoJSON());
-        }
-        try {
-            return collection.toJSON();
-        }
-        catch (JSONException e) {
-            Log.e("Builder", e.getMessage());
-            return null;
-        }
-    }
-
-    private class MarkerDragEventListener implements View.OnDragListener {
-        protected Vertex activeVertex;
-        protected int activeIndex;
-
-        private boolean dragStart(View v, DragEvent event) {
-            Vertex vertex = vertices.get(selected);
-
-            GeometryInterface geometry = vertex.getOwner();
-            this.activeVertex = vertex;
-            this.activeIndex = geometry.indexOfLatLng(vertex.getPoint());
-
-            markerOverlay.removeItem(vertex.getMarker());
-            Log.d("Builder", String.format("dragStart() selected: %d, activeIndex: %d, size: %d", selected, activeIndex, geometry.size()));
-
-            return true;
-        }
-
-        private boolean dragLocation(View v, DragEvent event) {
-            Projection p = mapView.getProjection();
-            LatLng latLng = (LatLng) p.fromPixels(event.getX(), event.getY());
-
-            this.activeVertex.getOwner().setLatLng(this.activeIndex, latLng);
-            // Let implementing classes perform reset action.
-            this.activeVertex.getOwner().reset();
-
-            Vertex vertex = vertices.get(selected);
-            Vertex prev = vertex.getPrev();
-            Vertex next = vertex.getNext();
-
-            if (prev != null) {
-                vertex.getMiddleLeft().setPoint(getMiddleLatLng(prev.getPoint(), latLng));
-            }
-
-            if (next != null) {
-                vertex.getMiddleRight().setPoint(getMiddleLatLng(latLng, next.getPoint()));
-            }
-
-            // Invalidating the view causes a redraw.
-            v.invalidate();
-            return true;
-        }
-
-        private boolean dragDrop(View view, DragEvent event) {
-            Projection p = mapView.getProjection();
-            Vertex v = vertices.get(selected);
-
-            LatLng latLng = (LatLng) p.fromPixels(event.getX(), event.getY());
-            v.getOwner().setLatLng(this.activeIndex, latLng);
-
-            v.setPoint(latLng);
-            markerOverlay.addItem(v.getMarker());
-            v.getMarker().addTo(mapView);
-
-            return true;
-        }
-
-        public boolean onDrag(View v, DragEvent event) {
-            final int action = event.getAction();
-
-            switch (action) {
-                case DragEvent.ACTION_DRAG_STARTED:
-                    return dragStart(v, event);
-                case DragEvent.ACTION_DRAG_ENTERED:
-                    return true;
-                case DragEvent.ACTION_DRAG_LOCATION:
-                    return this.dragLocation(v, event);
-                case DragEvent.ACTION_DRAG_EXITED:
-                    return true;
-                case DragEvent.ACTION_DROP:
-                    return this.dragDrop(v, event);
-                case DragEvent.ACTION_DRAG_ENDED:
-                    return true;
-                default:
-                    Log.e("MarkerDragEventListener","Unknown action type received by OnDragListener.");
-                    break;
-            }
-            return false;
-        }
-    }
-
-    public interface GeometryInterface {
-
-        void reset();
-
-        boolean addLatLng(LatLng latLng);
-
-        void addGhostLatLng(LatLng latLng);
-
-        boolean insertLatLng(int position, LatLng latLng);
-
-        void setLatLng(int position, LatLng latLng);
-
-        int indexOfLatLng(LatLng latLng);
-
-        void remove(int position);
-
-        void remove(LatLng latLng);
-
-        Feature toGeoJSON();
-
-        int size();
-
-    }
+  }
 }

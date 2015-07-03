@@ -35,6 +35,7 @@ public class Mapbox extends CordovaPlugin {
   public static final String EXTRA_GEOJSON = "extraGeoJSON";
   public static final String EXTRA_MBTILES = "extraMbtiles";
   public static final String EXTRA_MAPID = "extraMapId";
+  public static final String EXTRA_GEOMETRY_TYPES = "extraGeometryTypes";
 
   protected CallbackContext activeCallbackContext;
 
@@ -120,7 +121,6 @@ public class Mapbox extends CordovaPlugin {
       }
 
       if (options.has("mbtiles")) {
-
         CordovaResourceApi resourceApi = webView.getResourceApi();
         String mbtilesPath = options.getString("mbtiles");
         // Accept a path or a URI for the source.
@@ -135,6 +135,10 @@ public class Mapbox extends CordovaPlugin {
         Log.e("Mapbox", errorMessage);
         this.activeCallbackContext.error(errorMessage);
         return;
+      }
+
+      if (options.has("geometryTypes")) {
+        intent.putExtra(Mapbox.EXTRA_GEOMETRY_TYPES, options.getString("geometryTypes"));
       }
     }
     catch (JSONException e) {

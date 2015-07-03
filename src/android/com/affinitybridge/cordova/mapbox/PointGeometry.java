@@ -41,7 +41,7 @@ public class PointGeometry implements Builder.GeometryInterface {
     }
 
     public boolean addLatLng(LatLng latLng) {
-        return insertLatLng(-1, latLng);
+        return this.insertLatLng(-1, latLng);
     }
 
     public boolean insertLatLng(int position, LatLng latLng) {
@@ -75,7 +75,7 @@ public class PointGeometry implements Builder.GeometryInterface {
     }
 
     public void reset() {
-        this.count = 0;
+        //this.count = 0;
     }
 
     public Feature toGeoJSON() {

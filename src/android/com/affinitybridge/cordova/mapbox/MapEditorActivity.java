@@ -19,13 +19,17 @@ import android.view.MenuItem;
 
 import android.util.Log;
 import android.view.View;
-import android.widget.RelativeLayout;
+import android.widget.Toast;
 
 import com.cocoahero.android.geojson.Feature;
 import com.cocoahero.android.geojson.FeatureCollection;
 import com.cocoahero.android.geojson.GeoJSONObject;
 import com.cocoahero.android.geojson.Geometry;
+import com.cocoahero.android.geojson.GeometryCollection;
 import com.cocoahero.android.geojson.LineString;
+import com.cocoahero.android.geojson.MultiLineString;
+import com.cocoahero.android.geojson.MultiPoint;
+import com.cocoahero.android.geojson.MultiPolygon;
 import com.cocoahero.android.geojson.Point;
 import com.cocoahero.android.geojson.Polygon;
 import com.cocoahero.android.geojson.Position;
@@ -34,26 +38,33 @@ import com.getbase.floatingactionbutton.FloatingActionButton;
 import com.getbase.floatingactionbutton.FloatingActionsMenu;
 import com.mapbox.mapboxsdk.geometry.BoundingBox;
 import com.mapbox.mapboxsdk.geometry.LatLng;
-import com.mapbox.mapboxsdk.tileprovider.MapTileLayerBase;
-import com.mapbox.mapboxsdk.tileprovider.tilesource.ITileLayer;
+
 import com.mapbox.mapboxsdk.tileprovider.tilesource.MBTilesLayer;
 import com.mapbox.mapboxsdk.tileprovider.tilesource.MapboxTileLayer;
 import com.mapbox.mapboxsdk.tileprovider.tilesource.TileLayer;
 import com.mapbox.mapboxsdk.util.GeoUtils;
 import com.mapbox.mapboxsdk.views.MapView;
 
-import java.io.File;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 
 public class MapEditorActivity extends Activity {
 
   protected MapView mapView;
 
+  protected boolean userLocationEnabled = false;
+
+  protected BoundingBox mapExtent;
+
   protected Builder featureBuilder;
 
   protected ActionMode mActionMode;
 
   protected FloatingActionsMenu addMenu;
+
+  protected FloatingActionButton getLocation;
 
   protected FloatingActionButton addVertex;
 
@@ -103,47 +114,43 @@ public class MapEditorActivity extends Activity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-
-    Intent intent = this.getIntent();
-
     this.setContentView(this.resource("layout", "map_editor"));
 
-    this.mapView = (MapView) this.findViewById(this.resource("id", "mapeditor"));
-    this.initFeatureBuilder();
+    MapView mapView = this.mapView = (MapView) this.findViewById(this.resource("id", "mapeditor"));
+
+    Intent intent = this.getIntent();
+    this.initFeatureBuilder(mapView);
+    this.initGeometryTypeLimits(intent);
     this.initAddMenuButtons();
+    this.initBaseLayer(intent, mapView);
 
-    if (intent.hasExtra(Mapbox.EXTRA_MBTILES)) {
-      Uri uri = intent.getParcelableExtra(Mapbox.EXTRA_MBTILES);
-      this.initMBTiles(uri.getPath());
-    } else if (intent.hasExtra(Mapbox.EXTRA_MAPID)) {
-
-    } else {
-      Log.e("MapEditorActivity", "No basemap provided (mapId or mbtiles).");
-      MapTileLayerBase base = new MapboxTileLayer("");
-      this.mapView.setMinZoomLevel(base.getMinimumZoomLevel());
-      this.mapView.setMaxZoomLevel(base.getMaximumZoomLevel());
-      this.mapView.setCenter(base.getCenterCoordinate());
-      return;
-    }
+    ArrayList<LatLng> latLngs = new ArrayList<LatLng>();
 
     if (intent.hasExtra(Mapbox.EXTRA_GEOJSON)) {
       GeoJSONObject geojson = intent.getParcelableExtra(Mapbox.EXTRA_GEOJSON);
-      this.parseGeoJSON(geojson);
-    } else {
-//      Log.d("MapEditorActivity", "No GeoJSON, zooming to user location.");
-//      this.mapView.setUserLocationEnabled(true);
-//      this.mapView.setCenter(this.mapView.getUserLocation());
-//      this.mapView.setZoom(14);
+      this.parseGeoJSON(geojson, latLngs);
+      BoundingBox featuresExtent = GeoUtils.findBoundingBoxForGivenLocations(latLngs, 1.0);
+      Log.d("MapEditorActivity", String.format("Number of latlngs: %d", latLngs.size()));
+
+      if (MapEditorActivity.pointsWithinBox(this.mapExtent, latLngs)) {
+        Log.d("MapEditorActivity", String.format("Zooming to Features extent: %s", featuresExtent));
+        mapView.zoomToBoundingBox(featuresExtent);
+        mapView.setCenter(featuresExtent.getCenter());
+      } else if (latLngs.size() > 0) {
+        CharSequence message = "Some features are outside of the available map area.";
+        Toast toast = Toast.makeText(this.getBaseContext(), message, Toast.LENGTH_LONG);
+        toast.show();
+        Log.d("MapEditorActivity", message.toString());
+      }
     }
 
-//    RelativeLayout parent = (RelativeLayout) this.findViewById(this.resource("layout", "map_editor"));
-//    if (parent == null) Log.e("MapEditorActivity", "RelativeLayout 'parent' is null.");
-//    else parent.addView(this.mapView);
-
-//    setContentView(parent);
+    if (latLngs.isEmpty()) {
+      Log.d("MapEditorActivity", "No GeoJSON, zooming to user location.");
+      this.toggleUserLocation(true);
+    }
   }
 
-  protected void initFeatureBuilder() {
+  protected void initFeatureBuilder(MapView map) {
     Resources res = this.getResources();
     GradientDrawable vertexImg = (GradientDrawable) res.getDrawable(this.resource("drawable", "vertex_marker"));
 
@@ -156,7 +163,7 @@ public class MapEditorActivity extends Activity {
     vertexImg.setColor(Color.parseColor("#FFFF00"));
     Drawable vertexSelectedImage = new BitmapDrawable(res, MapEditorActivity.toBitmap(vertexImg));
 
-    this.featureBuilder = new Builder(this.mapView);
+    this.featureBuilder = new Builder(map);
     this.featureBuilder.setVertexImage(vertexImage);
     this.featureBuilder.setVertexMiddleImage(vertexMiddleImage);
     this.featureBuilder.setVertexSelectedImage(vertexSelectedImage);
@@ -165,6 +172,15 @@ public class MapEditorActivity extends Activity {
   protected void initAddMenuButtons() {
     this.addMenu = (FloatingActionsMenu) this.findViewById(this.resource("id", "actions_add"));
     this.addVertex = (FloatingActionButton) this.findViewById(this.resource("id", "action_add_vertex"));
+    this.getLocation = (FloatingActionButton) this.findViewById(this.resource("id", "action_get_location"));
+
+    this.getLocation.setOnClickListener(new View.OnClickListener() {
+      @Override
+      public void onClick(View v) {
+        toggleUserLocation();
+      }
+    });
+
     this.addVertex.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
@@ -172,64 +188,133 @@ public class MapEditorActivity extends Activity {
       }
     });
 
-    FloatingActionButton addPoint = new FloatingActionButton(this.getBaseContext());
-    addPoint.setTitle("Add point");
-    addPoint.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View v) {
-        addFeatureOnClick(featureBuilder.createPoint());
-      }
-    });
-    addMenu.addButton(addPoint);
+    if (this.featureBuilder.getMaxPoints() != 0) {
+      FloatingActionButton addPoint = new FloatingActionButton(this.getBaseContext());
+      addPoint.setTitle("Add point");
+      addPoint.setOnClickListener(new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+          addFeatureOnClick(featureBuilder.createPoint());
+        }
+      });
+      addMenu.addButton(addPoint);
+    }
 
-    FloatingActionButton addLine = new FloatingActionButton(this.getBaseContext());
-    addLine.setTitle("Add line");
-    addLine.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View v) {
-        addFeatureOnClick(featureBuilder.createLineString());
-      }
-    });
-    addMenu.addButton(addLine);
+    if (this.featureBuilder.getMaxLines() != 0) {
+      FloatingActionButton addLine = new FloatingActionButton(this.getBaseContext());
+      addLine.setTitle("Add line");
+      addLine.setOnClickListener(new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+          addFeatureOnClick(featureBuilder.createLineString());
+        }
+      });
+      addMenu.addButton(addLine);
+    }
 
-    FloatingActionButton addPoly = new FloatingActionButton(this.getBaseContext());
-    addPoly.setTitle("Add polygon");
-    addPoly.setOnClickListener(new View.OnClickListener() {
-      @Override
-      public void onClick(View v) {
-        addFeatureOnClick(featureBuilder.createPolygon());
-      }
-    });
-    addMenu.addButton(addPoly);
+    if (this.featureBuilder.getMaxPolygons() != 0) {
+      FloatingActionButton addPoly = new FloatingActionButton(this.getBaseContext());
+      addPoly.setTitle("Add polygon");
+      addPoly.setOnClickListener(new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+          addFeatureOnClick(featureBuilder.createPolygon());
+        }
+      });
+      addMenu.addButton(addPoly);
+    }
   }
 
-  protected void initMBTiles(String path) {
-    try {
-      Log.d("MapEditorActivity", String.format("URI: %s", path));
-      TileLayer mbTileLayer = new MBTilesLayer(path);
+  public void initBaseLayer(Intent intent, MapView map) {
+    TileLayer base = null;
 
-      BoundingBox bbox = mbTileLayer.getBoundingBox();
-      LatLng center = mbTileLayer.getCenterCoordinate();
-      float minZoom = mbTileLayer.getMinimumZoomLevel();
-      Log.d("MapEditorActivity", String.format("bbox (%s), center (%s), minZoom: (%f)", bbox, center, minZoom));
-
-      this.mapView.setTileSource(new ITileLayer[] {mbTileLayer});
-      this.mapView.setScrollableAreaLimit(bbox);
-      this.mapView.setCenter(center);
-      this.mapView.setZoom(minZoom);
+    if (intent.hasExtra(Mapbox.EXTRA_MBTILES)) {
+      Uri uri = intent.getParcelableExtra(Mapbox.EXTRA_MBTILES);
+      try {
+        base = new MBTilesLayer(uri.getPath());
+      }
+      catch (SQLiteCantOpenDatabaseException e) {
+        Log.e("MapEditorActivity", e.getMessage());
+        return;
+      }
+    } else if (intent.hasExtra(Mapbox.EXTRA_MAPID)) {
+      String mapId = intent.getStringExtra(Mapbox.EXTRA_MAPID);
+      base = new MapboxTileLayer(mapId);
     }
-    catch (SQLiteCantOpenDatabaseException e) {
-      Log.e("MapEditorActivity", e.getMessage());
+
+    if (base == null) {
+      Log.e("MapEditorActivity", "No basemap provided (mapId or mbtiles).");
+      return;
+    }
+
+    // Halfway between max and min zoom levels.
+    float min = base.getMinimumZoomLevel(), max = base.getMaximumZoomLevel();
+    float zoom = min + ((max - min) / 2);
+//    zoom = base.getMinimumZoomLevel();
+//    zoom = 9.0f;
+
+    this.mapExtent = base.getBoundingBox();
+    map.setTileSource(base);
+    map.setScrollableAreaLimit(this.mapExtent);
+    map.setMinZoomLevel(base.getMinimumZoomLevel());
+    map.setMaxZoomLevel(base.getMaximumZoomLevel());
+    map.setCenter(base.getCenterCoordinate());
+    map.setZoom(zoom);
+
+    Log.d("MapEditorActivity", String.format("extent (%s), center (%s), zoom: (%f), minZoom: (%f), maxZoom: (%f)", base.getBoundingBox(), base.getCenterCoordinate(), zoom, base.getMinimumZoomLevel(), base.getMaximumZoomLevel()));
+  }
+
+  protected void initGeometryTypeLimits(Intent intent) {
+    if (intent.hasExtra(Mapbox.EXTRA_GEOMETRY_TYPES)) {
+      try {
+        JSONObject types = new JSONObject(intent.getStringExtra(Mapbox.EXTRA_GEOMETRY_TYPES));
+        this.featureBuilder.setLimits(types);
+      } catch (JSONException e) {
+        Log.e("MapEditorActivity", e.getMessage());
+      }
     }
   }
 
   public void addFeatureOnClick(Builder.GeometryInterface geometry) {
-    this.addMenu.collapse();
-    this.addMenu.setVisibility(View.INVISIBLE);
-    this.addVertex.setVisibility(View.VISIBLE);
+    if (this.featureBuilder.startFeature(geometry)) {
+      this.addMenu.collapse();
+      this.addMenu.setVisibility(View.INVISIBLE);
+      this.addVertex.setVisibility(View.VISIBLE);
+      this.mActionMode = startActionMode(mActionModeCallback);
+    } else {
+      CharSequence message;
+      if (geometry instanceof PointGeometry) {
+        message = "Maximum number of points reached.";
+      } else if (geometry instanceof LineGeometry) {
+        message = "Maximum number of lines reached.";
+      } else if (geometry instanceof PolygonGeometry) {
+        message = "Maximum number of polygons reached.";
+      } else {
+        message = "Unable to add another geometry.";
+      }
+      Toast.makeText(getBaseContext(), message, Toast.LENGTH_LONG).show();
+    }
+  }
 
-    this.mActionMode = startActionMode(mActionModeCallback);
-    this.featureBuilder.startFeature(geometry);
+  public void toggleUserLocation() {
+    this.toggleUserLocation(!this.userLocationEnabled);
+  }
+
+  public void toggleUserLocation(boolean on) {
+    this.userLocationEnabled = on;
+    this.mapView.setUserLocationEnabled(on);
+    Log.d("MapEditorActivity", String.format("User location enabled: %b.", this.userLocationEnabled));
+
+    if (on) {
+      LatLng userLocation = this.mapView.getUserLocation();
+      if (this.mapExtent.contains(userLocation)) {
+        this.mapView.setCenter(userLocation);
+      } else {
+        CharSequence message = "User location is outside of available map area.";
+        Toast.makeText(this.getBaseContext(), message, Toast.LENGTH_LONG).show();
+        this.toggleUserLocation(false);
+      }
+    }
   }
 
   @Override
@@ -248,87 +333,76 @@ public class MapEditorActivity extends Activity {
     return res.getIdentifier(name, type, packageName);
   }
 
-  public void parseGeoJSON(GeoJSONObject geojson) {
-    Log.d("Builder", "parseGeoJSON()");
-    Log.d("Builder", String.format("Type: %s.", geojson.getType()));
-
+  public ArrayList<LatLng> parseGeoJSON(GeoJSONObject geojson, ArrayList<LatLng> latLngs) {
     if (geojson instanceof FeatureCollection) {
       FeatureCollection fc = (FeatureCollection) geojson;
       for (Feature f : fc.getFeatures()) {
-        this.parseGeoJSON(f);
+        latLngs.addAll(this.parseGeoJSON(f, new ArrayList<LatLng>()));
       }
     } else if (geojson instanceof Feature) {
-      Log.d("Builder", "instanceof Feature");
       Feature feature = (Feature) geojson;
-      drawGeometry(feature.getGeometry());
+      latLngs.addAll(drawGeometry(feature.getGeometry(), new ArrayList<LatLng>()));
     } else {
       Log.d("Builder", "Not instanceof Feature.");
     }
+
+    return latLngs;
   }
 
-  public void drawGeometry(Geometry geom) {
-    ArrayList<LatLng> latLngs = new ArrayList<LatLng>();
-//        if (geom instanceof GeometryCollection) {
-//            GeometryCollection gc = (GeometryCollection) geom;
-//            for (Geometry g : gc.getGeometries()) {
-//                this.drawGeometry(g);
-//            }
-//        }
-//        else if (geom instanceof MultiPolygon) {
-//            MultiPolygon multiPoly = (MultiPolygon) geom;
-//            for (Polygon poly : multiPoly.getPolygons()) {
-//                this.drawGeometry(poly);
-//            }
-//        }
+  public ArrayList<LatLng> drawGeometry(Geometry geom, ArrayList<LatLng> latLngs) {
+    if (geom instanceof GeometryCollection) {
+      GeometryCollection gc = (GeometryCollection) geom;
+      for (Geometry g : gc.getGeometries()) {
+        latLngs.addAll(this.drawGeometry(g, new ArrayList<LatLng>()));
+      }
+    }
+    else if (geom instanceof MultiPolygon) {
+      MultiPolygon multiPoly = (MultiPolygon) geom;
+      for (Polygon poly : multiPoly.getPolygons()) {
+        latLngs.addAll(this.drawGeometry(poly, new ArrayList<LatLng>()));
+      }
+    }
     if (geom instanceof Polygon) {
       Polygon poly = (Polygon) geom;
       for (Ring ring : poly.getRings()) {
         for (Position position : ring.getPositions()) {
-          //this.addLatLng(new LatLng(position.getLatitude(), position.getLongitude()));
           latLngs.add(new LatLng(position.getLatitude(), position.getLongitude()));
         }
       }
       this.featureBuilder.initMarkers(this.featureBuilder.createPolygon(), latLngs);
-
-      BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(latLngs, 0.1);
-      mapView.zoomToBoundingBox(box);
     }
-//        else if (geom instanceof MultiLineString) {
-//            MultiLineString multiLine = (MultiLineString) geom;
-//            for (LineString ls : multiLine.getLineStrings()) {
-//                this.drawGeometry(ls);
-//            }
-//        }
+    else if (geom instanceof MultiLineString) {
+      MultiLineString multiLine = (MultiLineString) geom;
+      for (LineString ls : multiLine.getLineStrings()) {
+        latLngs.addAll(this.drawGeometry(ls, new ArrayList<LatLng>()));
+      }
+    }
     else if (geom instanceof LineString) {
       LineString line = (LineString) geom;
       for (Position position : line.getPositions()) {
-        //this.addLatLng(new LatLng(position.getLatitude(), position.getLongitude()));
         latLngs.add(new LatLng(position.getLatitude(), position.getLongitude()));
       }
       this.featureBuilder.initMarkers(this.featureBuilder.createLineString(), latLngs);
-
-      BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(latLngs, 0.1);
-      mapView.zoomToBoundingBox(box);
     }
-//        else if (geom instanceof MultiPoint) {
-//            MultiPoint multiPoint = (MultiPoint) geom;
-//            for (Position p : multiPoint.getPositions()) {
-//                this.addLatLng(new LatLng(p.getLatitude(), p.getLongitude()));
-//            }
-//        }
+    else if (geom instanceof MultiPoint) {
+      MultiPoint multiPoint = (MultiPoint) geom;
+      for (Position p : multiPoint.getPositions()) {
+        latLngs.add(new LatLng(p.getLatitude(), p.getLongitude()));
+      }
+      this.featureBuilder.initMarkers(this.featureBuilder.createPoint(), latLngs);
+    }
     else if (geom instanceof Point) {
       Point point = (Point) geom;
       Position p = point.getPosition();
       //this.addLatLng(new LatLng(p.getLatitude(), p.getLongitude()));
       latLngs.add(new LatLng(p.getLatitude(), p.getLongitude()));
       this.featureBuilder.initMarkers(this.featureBuilder.createPoint(), latLngs);
-
-      BoundingBox box = GeoUtils.findBoundingBoxForGivenLocations(latLngs, 0.1);
-      mapView.zoomToBoundingBox(box);
     } else {
       // Unsupported geometry type.
       Log.e("Builder", String.format("Unsupported GeoJSON geometry type: %s.", geom.getType()));
     }
+
+    return latLngs;
   }
 
   public static Bitmap toBitmap(Drawable anyDrawable) {
@@ -337,6 +411,13 @@ public class MapEditorActivity extends Activity {
     anyDrawable.setBounds(0, 0, anyDrawable.getIntrinsicWidth(), anyDrawable.getIntrinsicHeight());
     anyDrawable.draw(canvas);
     return bmp;
+  }
+
+  public static Boolean pointsWithinBox(BoundingBox box, ArrayList<LatLng> latLngs) {
+    for (LatLng latLng : latLngs) {
+      if (!box.contains(latLng)) return false;
+    }
+    return true;
   }
 
 }
